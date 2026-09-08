@@ -2,6 +2,8 @@
 
 面向中国高中班主任的班级管理工具，集中处理学生档案、日常记录与班级事务。
 
+> Forked from [kyhx1984/teacher-works](https://github.com/kyhx1984/teacher-works)
+
 ## 功能特性
 
 - **多班级管理**：一位老师可管理多个班级，每个班级拥有完全独立的学生、成绩、考勤、座位、欠交和待办等数据（每班独立数据库文件，物理隔离互不耦合）；顶栏一键切换班级，新建/重命名/删除班级带防误删保护；老用户首次升级自动将现有数据注册为「默认班级」，零迁移零感知
@@ -442,9 +444,10 @@ MIT License
 
 ## 联系方式
 
-- **作者**: kyhx1984
-- **GitHub**: [@kyhx1984](https://github.com/kyhx1984)
+- **Fork 维护者**: GhostyCHEN
+- **GitHub**: [@GhostyCHEN](https://github.com/GhostyCHEN)
 - **问题反馈**: [Issues](https://github.com/GhostyCHEN/teacher-works/issues)
+- **上游**: [kyhx1984/teacher-works](https://github.com/kyhx1984/teacher-works)
 
 ---
 
