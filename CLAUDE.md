@@ -64,11 +64,13 @@ stop.bat
 
 ```bash
 ./deploy.sh            # auto-install Docker if missing, then docker compose up -d
-docker compose restart # upgrade path: extract new release tarball over ./, then this (no rebuild)
+./deploy.sh upgrade    # upgrade path: pull new image (or rebuild) + up -d
 docker compose down    # remove container (volumes persist)
 ```
 
-`docker-compose.yml` bind-mounts `./backend` and `./frontend/dist` into the container — code lives on the host and `restart` is the upgrade. `entrypoint.sh` symlinks `backend/node_modules` to a named volume `/deps` (Alpine musl binaries vs host glibc). **Do not run this stack against a developer-machine checkout** — it will overwrite your local `backend/node_modules` with the container's Alpine-built copy.
+`docker-compose.yml` no longer bind-mounts `./backend` or `./frontend/dist` — the image is **self-contained**: multi-stage build bakes frontend `dist` + backend `node_modules` into the image at build time. Runtime only mount `./data` (DB + uploads) and `./logs`. **Safe to run against a developer-machine checkout** — host `backend/node_modules` is no longer touched by the container.
+
+`deploy.sh upgrade` detects whether `docker-compose.yml` is using `build:` or `image:` mode: in image mode it runs `docker compose pull`, in build mode it runs `docker compose build --pull`, then `up -d`.
 
 CI: `.github/workflows/docker-publish.yml` builds multi-arch (linux/amd64+arm64) and pushes to `ghcr.io/GhostyCHEN/teacher-works` on push to `master` or any `v*` tag. Tags emitted: `latest`, branch ref, tag ref, semver, and `sha-<full>`. v1.0.0 has no image — use `latest` or a `sha-*` tag. _(Forked from kyhx1984/teacher-works; v1.0.0 caveat is inherited from upstream's pre-CI state and applies here only because the fork has not re-pushed a v1.0.0 tag.)_
 

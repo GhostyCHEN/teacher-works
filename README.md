@@ -105,7 +105,7 @@ wget https://github.com/GhostyCHEN/teacher-works/releases/latest/download/teache
 tar -xzf teacher-ops-latest.tar.gz
 cd teacher-ops
 
-# 3. 一键部署（自动安装 Docker、构建镜像、启动容器）
+# 3. 一键部署（自动安装 Docker、构建/拉取镜像、启动容器）
 ./deploy.sh
 
 # 4. 访问系统
@@ -114,43 +114,21 @@ cd teacher-ops
 ```
 
 **升级流程：**
-```bash
-# 解压新版本（覆盖旧代码）
-tar -xzf teacher-ops-*.tar.gz
 
-# 重启容器（无需重新构建镜像）
-docker compose restart
-```
-
-**免本地构建：从 GHCR 拉取预构建镜像**
-
-仓库已通过 GitHub Actions 自动构建多架构镜像（`linux/amd64` + `linux/arm64`）并推送到 GHCR，可跳过本地 `docker build` 直接拉取：
+业务代码已 baked in 镜像，升级不再需要解压覆盖源码 + 重启容器：
 
 ```bash
-# 1. 拉取镜像（公开镜像，无需登录；按服务器 CPU 架构自动匹配）
-docker pull ghcr.io/GhostyCHEN/teacher-works:latest
-
-# 2. 让 compose 使用拉取的镜像：编辑 docker-compose.yml，
-#    将 services.teacher-ops 下的 build 段（context/dockerfile 两行）替换为：
-#      image: ghcr.io/GhostyCHEN/teacher-works:latest
-#    其余卷挂载（代码 / 依赖 / 数据 / 日志）与环境变量全部保持不变
-
-# 3. 启动
-docker compose up -d
+# 一键升级（image 模式自动 pull 新镜像，build 模式自动重新构建）
+./deploy.sh upgrade
 ```
 
-> **镜像形态说明**：该镜像是「运行环境镜像」（node:22-alpine + 编译工具链 + entrypoint.sh），
-> 业务代码仍通过 bind mount 挂载、后端依赖仍在首次启动时安装到命名卷，因此**升级流程与本地构建完全一致**：
-> 解压新代码 → `docker compose restart`。
+如需使用 GHCR 预构建镜像跳过本地 build：编辑 `docker-compose.yml`，把 `services.teacher-ops.build` 两行替换为 `image: ghcr.io/GhostyCHEN/teacher-works:latest` 后再 `./deploy.sh upgrade`（首次需要 `./deploy.sh deploy` 拉镜像）。
+
+> **镜像形态说明**：业务代码与后端依赖都在构建阶段打包进镜像（multi-stage：先构建前端 → 再安装后端依赖 → 合并），运行时只挂载数据卷 `./data` 和日志卷 `./logs`，无需任何源码 bind mount。
 >
 > **可用标签**：`latest`（master 最新）、`master`、`sha-<完整提交号>`（可固定版本便于回滚）。
 > 推送 `v*` 格式的发布标签时会额外产出 `v<版本号>`（原样）与 `<版本号>`（去 v 前缀）两个标签；
 > 注：已发布的 `v1.0.0` 早于本 CI 建立，**无对应镜像**，请使用 `latest` 或 `sha-*`。
->
-> ⚠️ **请勿在开发机上挂载源码目录试跑**：容器 entrypoint 会删除 `/app/backend/node_modules`
-> （即宿主机的 `backend/node_modules`）并替换为指向容器依赖卷的符号链接，以规避跨平台原生模块不兼容问题。
-> 这会造成本机 `npm install` 成果丢失、`npm run dev` 失效，需重装依赖恢复。
-> 该镜像面向**服务器部署场景**（代码来自解压的发布包，非开发工作区）。
 
 ### 方式二：源码部署
 
