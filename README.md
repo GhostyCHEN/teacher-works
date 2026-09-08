@@ -97,7 +97,7 @@
 
 ```bash
 # 1. 下载最新发布包
-wget https://github.com/kyhx1984/teacher-works/releases/latest/download/teacher-ops-latest.tar.gz
+wget https://github.com/GhostyCHEN/teacher-works/releases/latest/download/teacher-ops-latest.tar.gz
 
 # 2. 解压
 tar -xzf teacher-ops-latest.tar.gz
@@ -126,11 +126,11 @@ docker compose restart
 
 ```bash
 # 1. 拉取镜像（公开镜像，无需登录；按服务器 CPU 架构自动匹配）
-docker pull ghcr.io/kyhx1984/teacher-works:latest
+docker pull ghcr.io/GhostyCHEN/teacher-works:latest
 
 # 2. 让 compose 使用拉取的镜像：编辑 docker-compose.yml，
 #    将 services.teacher-ops 下的 build 段（context/dockerfile 两行）替换为：
-#      image: ghcr.io/kyhx1984/teacher-works:latest
+#      image: ghcr.io/GhostyCHEN/teacher-works:latest
 #    其余卷挂载（代码 / 依赖 / 数据 / 日志）与环境变量全部保持不变
 
 # 3. 启动
@@ -154,7 +154,7 @@ docker compose up -d
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/kyhx1984/teacher-works.git
+git clone https://github.com/GhostyCHEN/teacher-works.git
 cd teacher-works
 
 # 2. 安装后端依赖
@@ -444,7 +444,7 @@ MIT License
 
 - **作者**: kyhx1984
 - **GitHub**: [@kyhx1984](https://github.com/kyhx1984)
-- **问题反馈**: [Issues](https://github.com/kyhx1984/teacher-works/issues)
+- **问题反馈**: [Issues](https://github.com/GhostyCHEN/teacher-works/issues)
 
 ---
 
