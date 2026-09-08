@@ -3,11 +3,13 @@
 # 教师兼班主任工作台 - Docker 一键部署脚本
 #
 # 用法:
-#   ./deploy.sh              一键部署(自动安装 Docker、构建镜像、启动容器)
-#   ./deploy.sh rebuild      重建镜像并重启容器(升级代码后使用)
+#   ./deploy.sh              一键部署(自动安装 Docker、构建/拉取镜像、启动容器)
+#   ./deploy.sh upgrade      升级容器(image 模式: pull 新镜像 + up -d;
+#                                       build 模式: build --pull + up -d)
+#   ./deploy.sh rebuild      同 upgrade (保留向后兼容的别名)
 #   ./deploy.sh start        启动已停止的容器
 #   ./deploy.sh stop         停止容器
-#   ./deploy.sh restart      重启容器
+#   ./deploy.sh restart      重启容器(代码已 baked in 镜像,重启不会更新代码)
 #   ./deploy.sh status       查看容器状态和日志
 #   ./deploy.sh logs         实时查看容器日志
 #   ./deploy.sh uninstall    停止并删除容器和镜像
@@ -16,15 +18,26 @@
 #   - 自动检测并安装 Docker(支持 Ubuntu/Debian/CentOS/RHEL/Fedora)
 #   - 容器设置 restart: always，异常退出后自动重启
 #   - 数据持久化到宿主机 ./data/ 目录，容器重建不丢数据
-#   - 升级流程: 解压新版本 -> ./deploy.sh rebuild -> 完成
+#   - 业务代码已 baked in 镜像,不再 bind mount ./backend 与 ./frontend/dist
+#   - 升级流程: ./deploy.sh upgrade (镜像模式: pull 新镜像;源码模式: 重新 build)
 ###############################################################################
 
 set -e
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTAINER_NAME="teacher-ops"
-IMAGE_NAME="teacher-ops:latest"
+LOCAL_IMAGE_NAME="teacher-ops:latest"
+REMOTE_IMAGE_NAME="ghcr.io/GhostyCHEN/teacher-works:latest"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.yml"
+
+# 检测 docker-compose.yml 是 build 模式还是 image 模式
+detect_image_name() {
+  if grep -qE '^\s*image:\s*' "$COMPOSE_FILE"; then
+    echo "$REMOTE_IMAGE_NAME"
+  else
+    echo "$LOCAL_IMAGE_NAME"
+  fi
+}
 
 # 颜色输出
 RED='\033[0;31m'
@@ -201,8 +214,8 @@ start_container() {
   echo "  常用命令:"
   echo "    ./deploy.sh status     查看状态"
   echo "    ./deploy.sh logs       查看日志"
-  echo "    ./deploy.sh restart    重启容器"
-  echo "    ./deploy.sh rebuild    重建镜像(升级后使用)"
+  echo "    ./deploy.sh upgrade    升级容器(拉新镜像或重新 build)"
+  echo "    ./deploy.sh stop       停止容器"
   echo "======================================================"
 }
 
@@ -222,12 +235,29 @@ restart_container() {
   log_info "容器已重启"
 }
 
-# 重建镜像并重启(升级流程)
-rebuild_and_restart() {
-  log_info "正在重启容器（代码通过挂载更新，无需重建镜像）..."
+# 升级流程: image 模式拉新镜像后 up -d;build 模式重新 build 后 up -d
+upgrade_container() {
+  log_info "正在升级..."
   cd "$ROOT_DIR"
-  $COMPOSE_CMD restart
-  log_info "容器已重启，代码已更新"
+  local image_name
+  image_name="$(detect_image_name)"
+
+  if [ "$image_name" = "$REMOTE_IMAGE_NAME" ]; then
+    log_info "检测到 image 模式 ($REMOTE_IMAGE_NAME), 拉取最新镜像..."
+    $COMPOSE_CMD pull
+  else
+    log_info "检测到 build 模式 ($LOCAL_IMAGE_NAME), 重新构建镜像..."
+    $COMPOSE_CMD build --pull
+  fi
+
+  log_info "重启容器..."
+  $COMPOSE_CMD up -d
+  log_info "升级完成"
+}
+
+# rebuild 别名(向后兼容)
+rebuild_and_restart() {
+  upgrade_container
 }
 
 # 查看状态
@@ -238,7 +268,7 @@ show_status() {
   docker ps -a --filter "name=$CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
   echo ""
   echo " 镜像信息:"
-  docker images "$IMAGE_NAME" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}"
+  docker images "$(detect_image_name)" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null || echo "  (镜像未拉取)"
   echo ""
   echo " 数据目录:"
   echo "   数据库: $ROOT_DIR/data/database.sqlite"
@@ -273,8 +303,8 @@ case "$MODE" in
     build_image
     start_container
     ;;
-  rebuild)
-    rebuild_and_restart
+  upgrade|rebuild)
+    upgrade_container
     ;;
   start)
     init_data_dirs
@@ -296,14 +326,15 @@ case "$MODE" in
     uninstall
     ;;
   *)
-    echo "用法: $0 [deploy | rebuild | start | stop | restart | status | logs | uninstall]"
+    echo "用法: $0 [deploy | upgrade | rebuild | start | stop | restart | status | logs | uninstall]"
     echo ""
     echo "命令说明:"
     echo "  deploy       一键部署(默认，自动安装 Docker、构建镜像、启动容器)"
-    echo "  rebuild      重建镜像并重启(升级代码后使用)"
+    echo "  upgrade      升级(image 模式拉新镜像;build 模式重新 build,均重启容器)"
+    echo "  rebuild      同 upgrade (向后兼容别名)"
     echo "  start        启动已停止的容器"
     echo "  stop         停止容器"
-    echo "  restart      重启容器"
+    echo "  restart      重启容器(代码 baked in 镜像,重启不会更新代码,用 upgrade)"
     echo "  status       查看容器状态"
     echo "  logs         实时查看容器日志"
     echo "  uninstall    停止并删除容器和镜像"
