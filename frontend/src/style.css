@@ -1,7 +1,95 @@
 :root {
-  --el-color-primary: #409eff;
-  --el-color-warning: #ffb84d;
-  --app-bg: #f7f7f5;
+  /* ================= Notion Design System Tokens (from DESIGN.md) ================= */
+  --notion-primary: #5645d4;
+  --notion-primary-pressed: #4534b3;
+  --notion-primary-deep: #3a2a99;
+  --notion-on-primary: #ffffff;
+
+  --notion-brand-navy: #0a1530;
+  --notion-brand-navy-deep: #070f24;
+  --notion-brand-navy-mid: #1a2a52;
+
+  --notion-link-blue: #0075de;
+  --notion-link-blue-pressed: #005bab;
+
+  --notion-brand-orange: #dd5b00;
+  --notion-brand-orange-deep: #793400;
+  --notion-brand-pink: #ff64c8;
+  --notion-brand-pink-deep: #a02e6d;
+  --notion-brand-purple: #7b3ff2;
+  --notion-brand-purple-300: #d6b6f6;
+  --notion-brand-purple-800: #391c57;
+  --notion-brand-teal: #2a9d99;
+  --notion-brand-green: #1aae39;
+  --notion-brand-yellow: #f5d75e;
+
+  /* Pastel Card Tints (echoing Notion database properties) */
+  --notion-tint-peach: #ffe8d4;
+  --notion-tint-rose: #fde0ec;
+  --notion-tint-mint: #d9f3e1;
+  --notion-tint-lavender: #e6e0f5;
+  --notion-tint-sky: #dcecfa;
+  --notion-tint-yellow: #fef7d6;
+  --notion-tint-yellow-bold: #f9e79f;
+  --notion-tint-cream: #f8f5e8;
+  --notion-tint-gray: #f0eeec;
+
+  /* Surfaces & Canvas */
+  --notion-canvas: #ffffff;
+  --notion-surface: #f6f5f4;
+  --notion-surface-soft: #fafaf9;
+  --notion-hairline: #e5e3df;
+  --notion-hairline-soft: #ede9e4;
+  --notion-hairline-strong: #c8c4be;
+
+  /* Typography & Ink */
+  --notion-ink-deep: #000000;
+  --notion-ink: #1a1a1a;
+  --notion-charcoal: #37352f;
+  --notion-slate: #5d5b54;
+  --notion-steel: #787671;
+  --notion-stone: #a4a097;
+  --notion-muted: #bbb8b1;
+
+  /* Semantic */
+  --notion-success: #1aae39;
+  --notion-warning: #dd5b00;
+  --notion-error: #e03131;
+
+  /* ================= Element Plus Override ================= */
+  --el-color-primary: #5645d4;
+  --el-color-primary-light-3: #7b6ae6;
+  --el-color-primary-light-5: #9e91f0;
+  --el-color-primary-light-7: #d6b6f6;
+  --el-color-primary-light-8: #e6e0f5;
+  --el-color-primary-light-9: #f3ebfc;
+  --el-color-primary-dark-2: #4534b3;
+
+  --el-color-success: #1aae39;
+  --el-color-success-light-9: #eef9f1;
+  --el-color-warning: #dd5b00;
+  --el-color-warning-light-9: #fdf5eb;
+  --el-color-danger: #e03131;
+  --el-color-danger-light-9: #fdeeee;
+  --el-color-info: #787671;
+  --el-color-info-light-9: #f4f4f3;
+
+  --el-text-color-primary: #1a1a1a;
+  --el-text-color-regular: #37352f;
+  --el-text-color-secondary: #5d5b54;
+  --el-text-color-placeholder: #a4a097;
+
+  --el-border-color: #e5e3df;
+  --el-border-color-light: #ede9e4;
+  --el-border-color-lighter: #f6f5f4;
+  --el-border-color-extra-light: #fafaf9;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #ffffff;
+  --app-bg: #ffffff;
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 9999px;
 }
 
 * {
@@ -17,19 +105,225 @@ body,
 }
 
 body {
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', Arial, sans-serif;
+  font-family: 'Notion Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   background-color: var(--app-bg);
+  color: var(--notion-charcoal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 所有卡片统一大圆角 */
+/* Notion 卡片风格：12px 圆角、细线描边、极轻微投影 */
 .el-card {
   border-radius: 12px !important;
+  border: 1px solid var(--notion-hairline) !important;
+  background-color: var(--notion-canvas) !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease !important;
 }
 
-/* 页面通用间距 */
-.page-container {
-  padding: 0;
+.el-card:hover {
+  box-shadow: none !important;
+}
+
+.el-card__header {
+  border-bottom: 1px solid var(--notion-hairline) !important;
+  padding: 14px 20px !important;
+  font-weight: 600;
+  color: var(--notion-ink);
+}
+
+/* 按钮样式：Notion 8px 矩形规范（非大胶囊） */
+.el-button {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+
+.el-button--primary:not(.is-link):not(.is-text):not(.is-plain) {
+  background-color: var(--notion-primary) !important;
+  border-color: var(--notion-primary) !important;
+  color: var(--notion-on-primary) !important;
+}
+
+.el-button--primary:not(.is-link):not(.is-text):not(.is-plain):hover {
+  background-color: var(--notion-primary-pressed) !important;
+  border-color: var(--notion-primary-pressed) !important;
+}
+
+.el-button--primary:not(.is-link):not(.is-text):not(.is-plain):active {
+  background-color: var(--notion-primary-deep) !important;
+  border-color: var(--notion-primary-deep) !important;
+}
+
+/* 输入框与选择框：8px 圆角与淡米色描边 */
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px var(--notion-hairline) inset !important;
+  transition: box-shadow 0.2s ease !important;
+}
+
+.el-input__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--notion-hairline-strong) inset !important;
+}
+
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 2px var(--notion-primary) inset !important;
+}
+
+.el-select__wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px var(--notion-hairline) inset !important;
+}
+
+.el-select__wrapper.is-focused {
+  box-shadow: 0 0 0 2px var(--notion-primary) inset !important;
+}
+
+/* 表格组件：Notion 数据库清晰视图 */
+.el-table {
+  border-radius: 8px !important;
+  border: 1px solid var(--notion-hairline) !important;
+  color: var(--notion-charcoal) !important;
+}
+
+.el-table th.el-table__cell {
+  background-color: var(--notion-surface-soft) !important;
+  color: var(--notion-slate) !important;
+  font-weight: 600 !important;
+  border-bottom: 1px solid var(--notion-hairline) !important;
+}
+
+.el-table td.el-table__cell {
+  border-bottom: 1px solid var(--notion-hairline-soft) !important;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: var(--notion-surface-soft) !important;
+}
+
+.el-table tbody tr:hover > td {
+  background-color: #f7f6f5 !important;
+}
+
+/* Notion 彩色马卡龙标签（Pastel Tints） */
+.el-tag {
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+}
+
+.el-tag--primary,
+.el-tag--default {
+  background-color: var(--notion-tint-lavender) !important;
+  color: var(--notion-brand-purple-800) !important;
+  border-color: #d6b6f6 !important;
+}
+
+.el-tag--success {
+  background-color: var(--notion-tint-mint) !important;
+  color: var(--notion-brand-green) !important;
+  border-color: #b7e8c6 !important;
+}
+
+.el-tag--warning {
+  background-color: var(--notion-tint-peach) !important;
+  color: var(--notion-brand-orange-deep) !important;
+  border-color: #fed2b2 !important;
+}
+
+.el-tag--danger {
+  background-color: var(--notion-tint-rose) !important;
+  color: var(--notion-brand-pink-deep) !important;
+  border-color: #fbc2d9 !important;
+}
+
+.el-tag--info {
+  background-color: var(--notion-tint-gray) !important;
+  color: var(--notion-slate) !important;
+  border-color: var(--notion-hairline) !important;
+}
+
+/* 对话框与浮层：Notion 弹窗风格 */
+.el-dialog {
+  border-radius: 12px !important;
+  border: 1px solid var(--notion-hairline) !important;
+  box-shadow: 0 16px 48px -8px rgba(15, 15, 15, 0.16) !important;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid var(--notion-hairline);
+  padding: 16px 20px !important;
+  margin-right: 0 !important;
+}
+
+.el-dialog__title {
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  color: var(--notion-ink) !important;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid var(--notion-hairline);
+  padding: 14px 20px !important;
+}
+
+/* 全局移动端适配 */
+@media (max-width: 768px) {
+  .el-dialog {
+    width: 92% !important;
+    max-width: 520px !important;
+    margin: 20px auto !important;
+  }
+  .el-message-box {
+    width: 90% !important;
+    max-width: 380px !important;
+  }
+  .el-pagination {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    justify-content: center !important;
+  }
+  .el-pagination__sizes,
+  .el-pagination__jump {
+    display: none !important;
+  }
+}
+
+/* Workspace interaction and density */
+button, input, select, textarea { font-family: inherit; }
+:where(button, a, input, [tabindex]):focus-visible { outline: 2px solid var(--notion-primary); outline-offset: 3px; }
+.el-button.is-link, .el-button.is-text { background: transparent; }
+.el-button.is-disabled { opacity: .5; }
+.el-table { font-size: 13px; --el-table-row-hover-bg-color: #fafaf9; }
+.el-table .el-table__cell { padding: 12px 0; }
+.el-table th.el-table__cell { font-size: 12px; font-weight: 500 !important; }
+.el-tag { border-color: transparent !important; }
+.el-tag--success { color: #287247 !important; }
+.el-empty__description p { color: #787671; font-size: 13px; }
+.el-empty__image { opacity: .65; }
+.main-content .header-actions, .main-content .action-buttons { flex-wrap: wrap; gap: 8px; }
+.el-dialog { max-width: calc(100vw - 32px); }
+.el-dialog__body { padding: 20px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Mobile pages expose the same records as readable cards. */
+.compact-mobile-list { display: none; }
+@media (max-width: 768px) {
+  .full-desktop-table { display: none; }
+  .compact-mobile-list { display: block; }
+  .compact-record { padding: 18px 0; border-bottom: 1px solid var(--notion-hairline-soft); }
+  .compact-record:first-child { padding-top: 0; }
+  .compact-record h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 15px; margin: 0 0 12px; overflow-wrap: anywhere; }
+  .compact-record small { color: var(--notion-steel); font-size: 11px; font-weight: 400; }
+  .compact-record p { font-size: 13px; color: var(--notion-slate); overflow-wrap: anywhere; line-height: 1.7; }
+  .compact-record a { color: var(--notion-primary); font-size: 14px; }
+  .compact-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .compact-actions .el-button { min-height: 40px; }
+  .tasks-container .filter-group { flex-wrap: wrap; gap: 8px; }
+  .el-dialog .el-form-item__content { min-width: 0; }
 }

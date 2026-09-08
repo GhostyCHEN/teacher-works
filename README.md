@@ -1,29 +1,37 @@
-# 教师兼班主任工作台
+# 高中班级工作台
 
-一站式教师工作管理系统，帮助教师高效管理学生信息、成绩、考勤、评价等日常工作。支持 Docker 一键部署、数据可视化、登录认证等商用级功能。
+面向中国高中班主任的班级管理工具，集中处理学生档案、日常记录与班级事务。
 
 ## 功能特性
 
-- **多班级管理**：一位老师可管理多个班级，每个班级拥有完全独立的学生、成绩、考勤、座位、课程表等数据（每班独立数据库文件，物理隔离互不耦合）；顶栏一键切换班级，新建/重命名/删除班级带防误删保护；老用户首次升级自动将现有数据注册为「默认班级」，零迁移零感知
+- **多班级管理**：一位老师可管理多个班级，每个班级拥有完全独立的学生、成绩、考勤、座位、欠交和待办等数据（每班独立数据库文件，物理隔离互不耦合）；顶栏一键切换班级，新建/重命名/删除班级带防误删保护；老用户首次升级自动将现有数据注册为「默认班级」，零迁移零感知
 
-### 数据看板
-- 班级核心数据一览（资源数、试卷数、学生数、今日请假、沟通记录等）
-- 近 7 天请假趋势折线图
-- 学生成绩分布饼图
-- 最近班级动态时间线
+### 班级首页
+- 未完成班级待办、当前在假学生与作业待补交数量
+- 近 7 日违纪记录，便于回顾与跟进
+- 手机首页提供违纪登记、请假登记、学生查询、班级待办四个入口
 
 ### 学生管理
-- 学生基本信息管理（姓名、性别、出生日期、家长联系方式等）
+- 学生基本信息管理（姓名、性别、出生日期、家长联系方式等）；仅姓名、性别必填，其余字段选填
+- 学生基本情况与健康档案（疾病情况、过敏史、健康体质等关注事项）
+- 特长生标记与管理（是否体育生、艺术生等，便于因材施教及体育安全防护）
 - 特殊学生标记与分类管理
 - Excel 批量导入学生
 - 花名册一键导出 Excel
 - 批量删除、分页浏览
 
+### 违纪管理
+- 学生日常违纪登记（包含课堂讲话、上课/早读迟到等常见类型，支持多学生批量快捷录入）
+- 月度自动清零机制（违纪统计按自然月周期自动清零，但所有历史违纪档案永久留存备查）
+- 历史回溯与检索（支持按月份回溯历史档案、按学生、按违纪类型精准筛选）
+- 月度高频预警与统计分析（本月违纪人次、讲话/迟到人次、重点关注名单）
+- 违纪记录一键导出 Excel
+
 ### 成绩管理
 - 单条成绩录入 / 编辑 / 删除
 - Excel 批量导入成绩
 - 成绩单一键导出 Excel
-- 成绩进退分析（平均分、最高分、最近成绩、上升/下降趋势）
+- 成绩进退分析（平均分、最高分、最近成绩、上升/下降趋势），直接使用录入或导入的成绩，无需关联试卷
 - 成绩分布柱状图（按分数段统计）
 - 批量删除、分页浏览
 
@@ -33,37 +41,19 @@
 - 请假状态跟踪（登记 / 已销假）
 - 批量销假、批量删除
 - 分页浏览
-
-### 综合评价
-- 学生综合素质评价（自动生成 + 手动修改）
-- 教师评分与等级评定（A/B/C/D）
-- 评价表一键导出 Excel
-- 依据成绩平均分 + 积分总和自动计算
-
-### 积分管理
-- 学生积分录入（正积分 / 负积分）
-- 积分事由记录
-- 批量删除、分页浏览
-
 ### 家校沟通
 - 家校沟通记录（电话、微信、面谈等方式标记）
 - 沟通内容与反馈追踪
 - 批量删除、分页浏览
 
-### 资源管理
-- 教学资源上传与分类管理
-- 资源文件下载
-- 按名称模糊搜索
+### 欠交登记
+- 按学生登记科目、作业名称、欠交日期和可选备注
+- 待补交 / 已补交筛选，支持标记补交与撤销
+- 兼容已有作业记录，取消作业发布、评分和图片上传流程
 
-### 试卷管理
-- 试卷信息录入（标题、类型、题目内容）
-- 试卷内容预览
-- 按标题搜索
-
-### 背书情况
-- 背书任务登记（关联学生，支持多选批量录入）
-- 背书状态跟踪（待背 / 已背）
-- 按状态、姓名、篇目筛选
+### 班级待办
+- 记录材料收集、活动安排和日常事项
+- 设置优先级、截止日期和完成状态
 
 ### 座位表管理
 - 可配置列数（3-10 列）
@@ -72,6 +62,7 @@
 - 座位布局持久化保存
 
 ### 系统功能
+- 固定高中学段，按高中入学年份与每年 9 月计算高一、高二、高三
 - **登录认证**：JWT Token 认证，默认账号 admin / admin123，支持修改密码
 - **年级管理**：显示当前年级，一键年级升级（一年级→六年级），入学年份自动递增
 - **教师信息**：点击右上角教师名称即可修改
@@ -298,6 +289,15 @@ teacher-works/
 - `DELETE /api/v1/scores/:id` - 删除成绩
 - `DELETE /api/v1/scores/batch` - 批量删除成绩
 
+### 违纪管理
+- `GET /api/v1/disciplines` - 获取学生违纪记录列表（支持按月/学生/类型筛选）
+- `GET /api/v1/disciplines/stats` - 获取违纪月度统计（当月自动清零统计与历史累计）
+- `GET /api/v1/disciplines/export` - 导出违纪记录为 Excel
+- `POST /api/v1/disciplines` - 录入违纪记录（支持批量多学生）
+- `PUT /api/v1/disciplines/:id` - 更新违纪记录
+- `DELETE /api/v1/disciplines/:id` - 删除单条违纪记录
+- `DELETE /api/v1/disciplines/batch` - 批量删除违纪记录
+
 ### 考勤管理
 - `GET /api/v1/leaves` - 获取请假记录
 - `POST /api/v1/leaves` - 登记请假（支持上传请假条图片）
@@ -305,29 +305,12 @@ teacher-works/
 - `DELETE /api/v1/leaves/:id` - 删除请假记录
 - `DELETE /api/v1/leaves/batch` - 批量删除请假记录
 
-### 综合评价
-- `GET /api/v1/evaluations` - 获取评价列表
-- `GET /api/v1/evaluations/export` - 导出评价表 Excel
-- `POST /api/v1/evaluations/generate` - 一键生成评价
-- `PUT /api/v1/evaluations/:id` - 更新评价
-
-### 积分管理
-- `GET /api/v1/points` - 获取积分列表
-- `POST /api/v1/points` - 录入积分
-- `DELETE /api/v1/points/:id` - 删除积分
-- `DELETE /api/v1/points/batch` - 批量删除积分
-
 ### 家校沟通
 - `GET /api/v1/communications` - 获取沟通记录
 - `POST /api/v1/communications` - 新增沟通记录
 - `DELETE /api/v1/communications/:id` - 删除沟通记录
 - `DELETE /api/v1/communications/batch` - 批量删除沟通记录
 
-### 背书管理
-- `GET /api/v1/recitations` - 获取背书记录
-- `POST /api/v1/recitations` - 登记背书
-- `PUT /api/v1/recitations/:id` - 更新背书状态
-- `DELETE /api/v1/recitations/:id` - 删除背书记录
 
 ### 座位表
 - `GET /api/v1/seats` - 获取座位表
@@ -336,38 +319,25 @@ teacher-works/
 ### 系统设置
 - `GET /api/v1/settings` - 获取系统设置
 - `PUT /api/v1/settings/:key` - 更新设置项
-- `POST /api/v1/settings/upgrade-grade` - 年级升级
+- `GET /api/v1/settings/grade-info` - 高中年级信息
+- `PUT /api/v1/settings/grade-year` - 设置高中入学年份
 
-### 资源管理
-- `GET /api/v1/resources` - 获取资源列表
-- `POST /api/v1/resources` - 上传资源
-- `DELETE /api/v1/resources/:id` - 删除资源
-- `GET/POST/DELETE /api/v1/resource-categories` - 资源功能类别管理
 
-### 试卷管理
-- `GET /api/v1/exams` - 获取试卷列表
-- `POST /api/v1/exams` - 新增试卷（同班内标题唯一）
-- `PUT /api/v1/exams/:id` - 更新试卷
-- `DELETE /api/v1/exams/:id` - 删除试卷
 
-### 考试记录
-- `GET /api/v1/exam-records` - 获取考试记录（支持 exam_id 筛选）
-- `POST /api/v1/exam-records` - 生成/补齐学生考试记录
-- `PUT/DELETE /api/v1/exam-records/:id` - 更新/删除单条记录
-- `POST /api/v1/exam-records/import` - Excel 导入成绩
-- `GET /api/v1/exam-records/template` - 导出成绩模板/成绩数据 Excel
 
-### 背书任务（两级结构）
-- `GET/POST/PUT/DELETE /api/v1/recitation-tasks` - 背书任务管理
-- `GET /api/v1/recitation-tasks/:id/export` - 导出全班完成情况 Excel
 
-### 作业任务（两级结构）
-- `GET/POST/PUT/DELETE /api/v1/homework-tasks` - 作业任务管理
-- `GET /api/v1/homework-tasks/:id/export` - 导出全班完成情况 Excel
 
-### 课程表
-- `GET /api/v1/schedule` - 获取课程表
-- `POST /api/v1/schedule` - 保存课程表项
+
+### 欠交登记
+- `GET /api/v1/homework-missing` - 欠交与补交记录（包含既有作业记录）
+- `POST /api/v1/homework-missing` - 登记欠交（student_id、title、subject、homework_date 必填，remark 选填）
+- `PUT /api/v1/homework-missing/:id` - 更新状态（0 待补交 / 1 已补交）或备注
+- `DELETE /api/v1/homework-missing/:id` - 删除记录
+
+### 班级待办
+- `GET/POST /api/v1/tasks` - 查看与新建待办
+- `PUT/DELETE /api/v1/tasks/:id` - 编辑或删除待办
+- `PUT /api/v1/tasks/:id/complete` - 标记完成
 
 ### 班级管理（多班级）
 - `GET/POST /api/v1/classes` - 班级列表/新建班级
@@ -375,6 +345,12 @@ teacher-works/
 - `DELETE /api/v1/classes/:id` - 删除班级（需名称二次确认）
 
 更多接口细节请参考 `backend/routes/` 目录下的路由文件。
+
+## 精简版兼容说明
+
+资源管理、试卷管理、背书和课程表的页面与业务接口已移除；旧链接返回班级首页。已有数据库表、文件和历史数据保留，升级不会主动清空。已有作业记录可在欠交登记中继续查看与更新；原有评分、图片字段不再提供编辑入口。成绩分析直接使用成绩表。
+
+验证命令：`node --test backend/tests/classroom.test.js`（独立临时数据库）与 `cd frontend && npm run build`。
 
 ## 数据备份
 

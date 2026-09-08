@@ -203,6 +203,9 @@ async function initClassDb(db) {
       address TEXT,
       is_special INTEGER DEFAULT 0,
       special_type TEXT,
+      health_condition TEXT,
+      is_sports INTEGER DEFAULT 0,
+      is_arts INTEGER DEFAULT 0,
       remark TEXT,
       avatar TEXT
     );
@@ -216,15 +219,6 @@ async function initClassDb(db) {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
-    CREATE TABLE IF NOT EXISTS points (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER,
-      reason TEXT,
-      points INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (student_id) REFERENCES students(id)
-    );
-
     CREATE TABLE IF NOT EXISTS leaves (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       student_id INTEGER,
@@ -233,6 +227,18 @@ async function initClassDb(db) {
       reason TEXT,
       status TEXT DEFAULT '登记',
       image_path TEXT,
+      FOREIGN KEY (student_id) REFERENCES students(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS disciplines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      incident_date TEXT NOT NULL,
+      severity TEXT DEFAULT '一般',
+      description TEXT,
+      handling TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
@@ -375,6 +381,17 @@ async function initClassDb(db) {
     await db.run('ALTER TABLE students ADD COLUMN avatar TEXT');
   } catch (e) { /* avatar 列已存在，忽略 */ }
 
+  // 为已存在的 students 表追加 health_condition, is_sports, is_arts 列（疾病健康状况、体育生、艺术生）
+  try {
+    await db.run('ALTER TABLE students ADD COLUMN health_condition TEXT');
+  } catch (e) { /* health_condition 列已存在，忽略 */ }
+  try {
+    await db.run('ALTER TABLE students ADD COLUMN is_sports INTEGER DEFAULT 0');
+  } catch (e) { /* is_sports 列已存在，忽略 */ }
+  try {
+    await db.run('ALTER TABLE students ADD COLUMN is_arts INTEGER DEFAULT 0');
+  } catch (e) { /* is_arts 列已存在，忽略 */ }
+
   // 为已存在的 schedule 表追加 time_slot 和 noon_remark 列（时间段和午间备注）
   try {
     await db.run('ALTER TABLE schedule ADD COLUMN time_slot TEXT');
@@ -402,11 +419,11 @@ async function initClassDb(db) {
   // 初始化年级信息（入学年份、当前年级），仅首次初始化时插入
   const existingGradeYear = await db.get("SELECT key FROM settings WHERE key = 'grade_year'");
   if (!existingGradeYear) {
-    await db.run("INSERT INTO settings (key, value) VALUES ('grade_year', '2025')");
+    await db.run("INSERT INTO settings (key, value) VALUES ('grade_year', ?)", [String(new Date().getFullYear() - (new Date().getMonth() < 8 ? 1 : 0))]);
   }
   const existingGradeLevel = await db.get("SELECT key FROM settings WHERE key = 'grade_level'");
   if (!existingGradeLevel) {
-    await db.run("INSERT INTO settings (key, value) VALUES ('grade_level', '一年级')");
+    await db.run("INSERT INTO settings (key, value) VALUES ('grade_level', '高一')");
   }
 
   // 数据一致性修复：试卷科目回填（标题包含科目词时自动推断）

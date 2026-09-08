@@ -1,94 +1,24 @@
 <template>
   <el-container class="layout-container">
-    <el-aside width="220px" class="aside">
+    <el-aside width="224px" class="aside">
       <div class="logo">
-        <h2>教师工作台</h2>
+        <div class="workspace-badge">
+          <span class="workspace-icon"><el-icon><Notebook /></el-icon></span>
+          <h2 class="workspace-title">班级工作台</h2>
+        </div>
       </div>
-      <el-menu
-        :default-active="activeMenu"
-        class="el-menu-vertical"
-        background-color="#ffffff"
-        text-color="#303133"
-        active-text-color="#FFB84D"
-        router
-      >
-        <el-menu-item index="/dashboard">
-          <el-icon><Odometer /></el-icon>
-          <span>数据看板</span>
-        </el-menu-item>
-        
-        <el-sub-menu index="teacher">
-          <template #title>
-            <el-icon><Briefcase /></el-icon>
-            <span>教师工作</span>
-          </template>
-          <el-menu-item index="/teacher/resources">
-            <el-icon><Files /></el-icon>
-            <span>资源管理</span>
-          </el-menu-item>
-          <el-menu-item index="/teacher/exams">
-            <el-icon><Document /></el-icon>
-            <span>试卷管理</span>
-          </el-menu-item>
-          <el-menu-item index="/teacher/recitations">
-            <el-icon><Reading /></el-icon>
-            <span>背书情况</span>
-          </el-menu-item>
-          <el-menu-item index="/teacher/homework">
-            <el-icon><EditPen /></el-icon>
-            <span>作业管理</span>
-          </el-menu-item>
-          <el-menu-item index="/teacher/schedule">
-            <el-icon><Calendar /></el-icon>
-            <span>我的课程表</span>
-          </el-menu-item>
-          <el-menu-item index="/teacher/tasks">
-            <el-icon><List /></el-icon>
-            <span>临时工作区</span>
-          </el-menu-item>
-        </el-sub-menu>
-
-        <el-sub-menu index="advisor">
-          <template #title>
-            <el-icon><Avatar /></el-icon>
-            <span>班主任工作</span>
-          </template>
-          <el-menu-item index="/advisor/students">
-            <el-icon><User /></el-icon>
-            <span>学生档案</span>
-          </el-menu-item>
-          <el-menu-item index="/advisor/scores">
-            <el-icon><DataLine /></el-icon>
-            <span>成绩分析</span>
-          </el-menu-item>
-          <el-menu-item index="/advisor/points">
-            <el-icon><Trophy /></el-icon>
-            <span>积分管理</span>
-          </el-menu-item>
-          <el-menu-item index="/advisor/leaves">
-            <el-icon><Calendar /></el-icon>
-            <span>请假管理</span>
-          </el-menu-item>
-          <el-menu-item index="/advisor/evaluations">
-            <el-icon><Star /></el-icon>
-            <span>期末评价</span>
-          </el-menu-item>
-          <el-menu-item index="/advisor/communications">
-            <el-icon><ChatDotRound /></el-icon>
-            <span>家校沟通</span>
-          </el-menu-item>
-          <el-menu-item index="/advisor/seats">
-            <el-icon><Grid /></el-icon>
-            <span>座位表</span>
-          </el-menu-item>
-        </el-sub-menu>
-      </el-menu>
+      <WorkspaceNav />
+      <div class="sidebar-footer"><span class="workspace-status"></span> 高中班主任 · 班级工作空间</div>
     </el-aside>
-    
+
     <el-container>
       <el-header class="header">
-        <div class="header-left">
-          <span class="page-title">{{ pageTitle }}</span>
+        <div class="header-left"><el-button class="mobile-only" text aria-label="返回手机首页" @click="router.push('/mobile')"><el-icon><House /></el-icon></el-button>
+          <!-- 移动端汉堡菜单按钮 -->
+          <el-button class="mobile-menu-btn" aria-label="打开导航菜单" text @click="mobileDrawerVisible = true">
+            <el-icon :size="20"><Expand /></el-icon>
+          </el-button>
+          <span class="breadcrumb-home desktop-only">工作空间 <span>/</span></span><span class="page-title">{{ pageTitle }}</span>
           <!-- 班级切换器：单班级时为只读标签，多班级时为下拉切换 -->
           <el-select
             v-if="classList.length > 1"
@@ -104,43 +34,59 @@
               :label="`${c.name}（${c.student_count}人）`"
             />
           </el-select>
-          <el-tag v-else-if="currentClassName" type="success" size="small" class="grade-tag">
+          <el-tag v-else-if="currentClassName" type="success" size="small" class="grade-tag desktop-only">
             {{ currentClassName }}
           </el-tag>
-          <el-button size="small" plain class="grade-tag" @click="openClassDialog">
-            <el-icon><Setting /></el-icon>班级
-          </el-button>
-          <el-tag v-if="gradeInfo.level" type="warning" size="small" class="grade-tag">
-            {{ gradeInfo.level }}（{{ gradeInfo.year }}级）
-          </el-tag>
-          <el-button
-            v-if="gradeInfo.level"
-            type="warning"
-            size="small"
-            plain
-            @click="openGradeDialog"
-          >
-            <el-icon><Top /></el-icon>设置年级
-          </el-button>
-          <span class="current-date">
+          <span class="current-date desktop-only">
             <el-icon><Calendar /></el-icon>
             <span>{{ currentDateText }}</span>
           </span>
         </div>
         <div class="header-right">
-          <el-avatar
-            :size="32"
-            :src="teacherAvatarSrc || undefined"
-            class="header-avatar"
-            @click="openEditDialog"
-          >{{ teacherAvatarEmoji || (teacherName ? teacherName.slice(0, 1) : '') }}</el-avatar>
-          <span class="username" @click="openEditDialog" style="cursor: pointer;" title="点击修改个人信息">{{ teacherName }}</span>
-          <el-button text type="primary" :icon="Key" @click="openPasswordDialog">修改密码</el-button>
-          <el-button text type="danger" :icon="SwitchButton" @click="handleLogout">退出登录</el-button>
+          <div class="account-actions">
+            <el-dropdown trigger="click" @command="handleUserMenuCommand">
+              <button class="account-trigger" aria-label="账户与工作台设置"><el-avatar
+                :size="28"
+                :src="teacherAvatarSrc || undefined"
+                class="header-avatar"
+              >{{ teacherAvatarEmoji || (teacherName ? teacherName.slice(0, 1) : '') }}</el-avatar><span>{{ teacherName }}</span><el-icon><ArrowDown /></el-icon></button>
+              <template #dropdown>
+                <el-dropdown-menu class="mobile-dropdown-menu">
+                  <el-dropdown-item disabled>
+                    <b>{{ teacherName }}</b>
+                    <span v-if="currentClassName" style="color: #67c23a; margin-left: 6px">（{{ currentClassName }}）</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="profile">
+                    <el-icon><User /></el-icon>个人信息
+                  </el-dropdown-item>
+                  <el-dropdown-item command="class">
+                    <el-icon><Setting /></el-icon>班级管理
+                  </el-dropdown-item>
+                  <el-dropdown-item command="grade">
+                    <el-icon><Top /></el-icon>年级设置
+                  </el-dropdown-item>
+                  <el-dropdown-item command="password">
+                    <el-icon><Key /></el-icon>修改密码
+                  </el-dropdown-item>
+                  <el-dropdown-item command="mobile" style="color: #409eff; font-weight: 500">
+                    <el-icon><Lightning /></el-icon>手机班级首页
+                  </el-dropdown-item>
+                  <el-dropdown-item divided command="logout" style="color: #f56c6c">
+                    <el-icon><SwitchButton /></el-icon>退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </div>
       </el-header>
-      
+
       <el-main class="main-content">
+        <div v-if="route.path !== '/dashboard'" class="workspace-page-heading">
+          <div class="page-symbol"><el-icon><component :is="route.meta.icon" /></el-icon></div>
+          <h1>{{ pageTitle }}</h1>
+          <p>{{ pageDescriptions[route.path] }}</p>
+        </div>
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
@@ -148,6 +94,32 @@
         </router-view>
       </el-main>
     </el-container>
+
+    <!-- 移动端导航抽屉 -->
+    <el-drawer
+      v-model="mobileDrawerVisible"
+      direction="ltr"
+      size="270px"
+      :with-header="false"
+      class="mobile-nav-drawer"
+    >
+      <div class="drawer-header">
+        <div class="drawer-title-box">
+          <span class="drawer-logo-icon">📚</span>
+          <span class="drawer-app-name">班级工作台</span>
+        </div>
+        <el-button text circle size="small" @click="mobileDrawerVisible = false">
+          <el-icon :size="18"><Close /></el-icon>
+        </el-button>
+      </div>
+
+      <div class="drawer-class-info" v-if="currentClassName || gradeInfo.level">
+        <el-tag size="small" type="success" v-if="currentClassName">{{ currentClassName }}</el-tag>
+        <el-tag size="small" type="warning" v-if="gradeInfo.level">{{ gradeInfo.level }}（{{ gradeInfo.year }}级）</el-tag>
+      </div>
+
+      <WorkspaceNav :enable-shortcut="false" @navigate="mobileDrawerVisible = false" />
+    </el-drawer>
 
     <!-- 个人信息对话框（教师名称 + 头像：卡通选择或上传） -->
     <el-dialog v-model="showEditDialog" title="个人信息" width="480px">
@@ -224,13 +196,13 @@
         :closable="false"
         show-icon
         style="margin-bottom: 16px"
-        title="年级将根据入学年份和当前日期自动计算（每年9月升级）"
+        title="固定为高中学段，根据高中入学年份计算高一至高三，每年9月升级。"
       />
       <el-form label-width="100px">
         <el-form-item label="当前年级">
           <el-tag type="warning">{{ gradeInfo.level }}</el-tag>
         </el-form-item>
-        <el-form-item label="入学年份">
+        <el-form-item label="高中入学年份">
           <el-input-number v-model="gradeYearInput" :min="2000" :max="2100" :step="1" style="width: 100%" />
         </el-form-item>
       </el-form>
@@ -306,16 +278,37 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Key, SwitchButton, Upload, Setting } from '@element-plus/icons-vue'
 import { getSettings, updateSetting, getGradeInfo, updateGradeYear, changePassword, uploadTeacherAvatar, getClasses, createClass, renameClass, deleteClass } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { switchToMobile } from '../utils/device'
 
+import WorkspaceNav from '../components/workspace/WorkspaceNav.vue'
+const pageDescriptions = {
+  '/teacher/homework': '登记欠交情况，及时跟进补交。', '/teacher/tasks': '材料收集、班级活动和日常事项，一处安排。',
+  '/advisor/students': '每一位学生，都值得被认真了解。', '/advisor/scores': '按考试与科目查看成绩，关注进步与变化。',
+  '/advisor/disciplines': '客观记录，及时跟进，陪伴学生养成好习惯。', '/advisor/leaves': '统一登记与销假，掌握学生出勤情况。',
+  '/advisor/communications': '留存每一次沟通，让家校协作更有温度。', '/advisor/seats': '为学生安排合适的位置，让课堂更有秩序。'
+}
 const route = useRoute()
 const router = useRouter()
 const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => route.meta.title || '工作台')
+
+// 移动端侧边菜单抽屉显隐
+const mobileDrawerVisible = ref(false)
+
+// 移动端顶部头像下拉命令处理
+const handleUserMenuCommand = (command) => {
+  if (command === 'profile') openEditDialog()
+  else if (command === 'class') openClassDialog()
+  else if (command === 'grade') openGradeDialog()
+  else if (command === 'password') openPasswordDialog()
+  else if (command === 'mobile') switchToMobile()
+  else if (command === 'logout') handleLogout()
+}
 
 // ================= 班级管理（多班级支持） =================
 const classList = ref([])
@@ -678,11 +671,13 @@ const handleLogout = () => {
     })
 }
 
+let dateTimer
+onBeforeUnmount(() => clearInterval(dateTimer))
 onMounted(() => {
   loadClasses()
   loadTeacherInfo()
   updateCurrentDate()
-  setInterval(updateCurrentDate, 60000)
+  dateTimer = setInterval(updateCurrentDate, 60000)
 })
 </script>
 
@@ -692,36 +687,85 @@ onMounted(() => {
 }
 
 .aside {
-  background-color: #ffffff;
-  box-shadow: 2px 0 8px 0 rgba(29,35,41,.05);
+  background-color: #f7f6f5;
+  border-right: 1px solid #e5e3df;
+  box-shadow: none;
   z-index: 10;
 }
 
 .logo {
   height: 60px;
-  line-height: 60px;
-  text-align: center;
-  color: #409EFF;
-  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid #e5e3df;
 }
 
-.logo h2 {
+.workspace-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-icon {
+  font-size: 20px;
+}
+
+.workspace-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
 }
 
 .el-menu-vertical {
   border-right: none;
+  padding: 8px 4px;
 }
 
-.el-menu-item.is-active {
-  background-color: #fff6eb;
-  border-right: 3px solid #FFB84D;
+:deep(.el-menu-item) {
+  border-radius: 6px;
+  margin: 2px 4px;
+  height: 38px;
+  line-height: 38px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #5d5b54;
+  transition: all 0.15s ease;
+}
+
+:deep(.el-menu-item:hover) {
+  background-color: #ede9e4 !important;
+  color: #1a1a1a !important;
+}
+
+:deep(.el-menu-item.is-active) {
+  background-color: #e6e0f5 !important;
+  color: #5645d4 !important;
+  font-weight: 600 !important;
+  border-right: none !important;
+}
+
+:deep(.el-sub-menu__title) {
+  border-radius: 6px;
+  margin: 2px 4px;
+  height: 38px;
+  line-height: 38px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #5d5b54;
+}
+
+:deep(.el-sub-menu__title:hover) {
+  background-color: #ede9e4 !important;
+  color: #1a1a1a !important;
 }
 
 .header {
   background-color: #ffffff;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
+  border-bottom: 1px solid #e5e3df;
+  box-shadow: 0 1px 2px rgba(15, 15, 15, 0.03);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -730,8 +774,9 @@ onMounted(() => {
 
 .page-title {
   font-size: 18px;
-  font-weight: bold;
-  color: #303133;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
 }
 
 .header-left {
@@ -753,6 +798,7 @@ onMounted(() => {
 
 .header-avatar {
   cursor: pointer;
+  border: 1px solid #e5e3df;
 }
 
 /* 个人信息弹窗：头像上传与卡通选择 */
@@ -830,4 +876,116 @@ onMounted(() => {
 .fade-leave-to {
   opacity: 0;
 }
+
+/* 移动端菜单抽屉 */
+.mobile-nav-drawer :deep(.el-drawer__body) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.drawer-header {
+  height: 56px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f0f0f0;
+}
+.drawer-title-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drawer-logo-icon {
+  font-size: 20px;
+}
+.drawer-app-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #409eff;
+}
+.drawer-class-info {
+  padding: 8px 16px;
+  display: flex;
+  gap: 8px;
+  background-color: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+.drawer-menu {
+  flex: 1;
+  overflow-y: auto;
+  border-right: none;
+}
+
+/* 响应式断点控制 */
+@media (min-width: 769px) {
+  .mobile-menu-btn {
+    display: none !important;
+  }
+  .mobile-only {
+    display: none !important;
+  }
+  .desktop-only {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .aside {
+    display: none !important;
+  }
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: flex !important;
+    align-items: center;
+  }
+  .mobile-menu-btn {
+    display: inline-flex !important;
+    padding: 0 6px !important;
+    margin-right: 2px;
+  }
+  .header {
+    padding: 0 12px !important;
+    height: 52px !important;
+  }
+  .page-title {
+    font-size: 16px !important;
+  }
+  .class-switcher {
+    width: 120px !important;
+  }
+  .main-content {
+    padding: 12px 8px !important;
+  }
+  :deep(.el-dialog) {
+    width: 92% !important;
+    max-width: 520px !important;
+    margin: 20px auto !important;
+  }
+}
+
+.aside { display: flex; flex-direction: column; background: #f7f7f5; }
+.logo { min-height: 72px; border: 0; padding: 0 22px; }
+.workspace-icon { display: grid; place-items: center; width: 29px; height: 31px; background: #fff; border: 1px solid #37352f; border-radius: 5px; color: #37352f; }
+.workspace-title { font-size: 15px; }
+.sidebar-footer { margin-top: auto; padding: 20px; font-size: 10px; color: #787671; white-space: nowrap; }
+.workspace-status { display: inline-block; width: 5px; height: 5px; background: #2a9d99; border-radius: 50%; margin-right: 4px; }
+.header { height: 56px; box-shadow: none; padding: 0 28px; flex-shrink: 0; }
+.header-left { gap: 14px; min-width: 0; }
+.breadcrumb-home { font-size: 12px; color: #787671; }
+.breadcrumb-home span { margin-left: 14px; color: #c8c4be; }
+.page-title { font-size: 13px; font-weight: 500; white-space: nowrap; }
+.account-trigger { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: transparent; border: 0; border-radius: 6px; font: inherit; font-size: 12px; color: #5d5b54; cursor: pointer; }
+.account-trigger:hover { background: #f6f5f4; }
+.main-content { background: #fff; padding: 40px clamp(24px, 4vw, 64px); }
+.workspace-page-heading { margin: 0 0 28px; }
+.page-symbol { color: #787671; font-size: 28px; margin-bottom: 12px; }
+.workspace-page-heading h1 { margin: 0 0 10px; font-size: 30px; letter-spacing: -1px; font-weight: 650; }
+.workspace-page-heading p { margin: 0; color: #787671; font-size: 13px; }
+@media (max-width: 1100px) { .current-date { display: none; } }
+@media (max-width: 768px) { .aside { display: none; } .header { padding: 0 12px; } .main-content { padding: 24px 16px; } .account-trigger > span:not(.el-avatar) { display: none; } }
 </style>

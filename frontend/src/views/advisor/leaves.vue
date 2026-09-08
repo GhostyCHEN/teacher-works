@@ -31,7 +31,16 @@
         </div>
       </template>
 
-      <el-table :data="pagedData" style="width: 100%" v-loading="loading" @selection-change="handleSelectionChange">
+      <div class="compact-mobile-list" v-loading="loading">
+        <article v-for="leave in pagedData" :key="leave.id" class="compact-record">
+          <h3>{{ leave.student_name || '已删除学生' }} <el-tag size="small" :type="leave.status === '已销假' ? 'success' : 'warning'">{{ leave.status }}</el-tag></h3>
+          <small>{{ leave.start_date }} — {{ leave.end_date }}</small><p>{{ leave.reason }}</p>
+          <el-image v-if="leave.image_path" :src="`/uploads/${leave.image_path}`" :preview-src-list="previewList(leave.image_path)" preview-teleported style="width:60px;height:60px" fit="cover" />
+          <div class="compact-actions"><el-button v-if="leave.status === '登记'" @click="handleSellOff(leave)">办理销假</el-button><el-button text @click="openEdit(leave)">编辑</el-button></div>
+        </article>
+        <el-empty v-if="!loading && !pagedData.length" description="暂无请假记录" :image-size="60" />
+      </div>
+      <el-table class="full-desktop-table" :data="pagedData" style="width: 100%" v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="student_name" label="学生" width="110" />
@@ -158,6 +167,8 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+const route = useRoute()
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getLeaves,
@@ -386,7 +397,7 @@ const handleBatchDelete = async () => {
   }
 }
 
-onMounted(loadData)
+onMounted(() => { loadData(); if (route.query.create === '1') openCreate() })
 </script>
 
 <style scoped>

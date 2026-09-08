@@ -33,17 +33,6 @@ const sendResponse = (res, data = {}, message = 'success', code = 200) => {
 
 // ================= STUDENTS =================
 
-// 为已有考试记录的试卷补充该学生的考试记录（成绩为空），保证学生档案与试卷管理保持一致
-async function fillMissingExamRecords(db, studentId) {
-  const examRows = await db.all('SELECT DISTINCT exam_id FROM exam_records');
-  for (const row of examRows) {
-    await db.run(
-      'INSERT INTO exam_records (exam_id, student_id) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM exam_records WHERE exam_id = ? AND student_id = ?)',
-      [row.exam_id, studentId, row.exam_id, studentId]
-    );
-  }
-}
-
 // GET /students - 学生列表
 router.get('/students', async (req, res) => {
   try {
@@ -64,14 +53,27 @@ router.post('/students/import', upload.single('file'), async (req, res) => {
     const sheetName = workbook.SheetNames[0];
     const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
     
+    for (const [index, row] of data.entries()) {
+      if (typeof row.name !== 'string' || !row.name.trim() || !['男', '女'].includes(row.gender)) {
+        return sendResponse(res, null, `第 ${index + 2} 行：姓名和性别必填，性别请填写男或女`, 400);
+      }
+    }
     const db = await getDb();
     let imported = 0;
     
     for (const row of data) {
       if (!row.name) continue; // skip empty rows
+      const isSportsVal = row.is_sports !== undefined
+        ? (row.is_sports ? 1 : 0)
+        : (row['是否体育生'] === '是' || row['体育生'] === '是' ? 1 : 0);
+      const isArtsVal = row.is_arts !== undefined
+        ? (row.is_arts ? 1 : 0)
+        : (row['是否艺术生'] === '是' || row['艺术生'] === '是' ? 1 : 0);
+      const healthVal = row.health_condition || row['疾病情况'] || row['健康状况'] || '';
+
       const result = await db.run(
-        `INSERT INTO students (name, gender, birth, parent_name, phone, family_info, address, is_special, special_type)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO students (name, gender, birth, parent_name, phone, family_info, address, is_special, special_type, health_condition, is_sports, is_arts)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           row.name || '',
           row.gender || '',
@@ -81,11 +83,12 @@ router.post('/students/import', upload.single('file'), async (req, res) => {
           row.family_info || '',
           row.address || '',
           row.is_special ? 1 : 0,
-          row.special_type || ''
+          row.special_type || '',
+          healthVal,
+          isSportsVal,
+          isArtsVal
         ]
       );
-      // 同步：为已有考试记录的试卷补充该学生的考试记录
-      await fillMissingExamRecords(db, result.lastID);
       imported++;
     }
     
@@ -95,38 +98,39 @@ router.post('/students/import', upload.single('file'), async (req, res) => {
   }
 });
 
-// POST /students - 新增学生（支持备注 remark 与头像 avatar）
+// POST /students - 新增学生（支持健康/疾病状况 health_condition、体育生 is_sports、艺术生 is_arts、备注 remark 与头像 avatar）
 router.post('/students', async (req, res) => {
   try {
-    const { name, gender, birth, parent_name, phone, family_info, address, is_special, special_type, remark, avatar } = req.body;
-    if (!name) return sendResponse(res, null, '学生姓名不能为空', 400);
+    const { name, gender, birth, parent_name, phone, family_info, address, is_special, special_type, health_condition, is_sports, is_arts, remark, avatar, grade, class: className } = req.body;
+    if (typeof name !== 'string' || !name.trim()) return sendResponse(res, null, '学生姓名不能为空', 400);
+    if (!['男', '女'].includes(gender)) return sendResponse(res, null, '请选择性别', 400);
     const db = await getDb();
     const result = await db.run(
-      `INSERT INTO students (name, gender, birth, parent_name, phone, family_info, address, is_special, special_type, remark, avatar)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO students (name, gender, birth, parent_name, phone, family_info, address, is_special, special_type, health_condition, is_sports, is_arts, remark, avatar, grade, class)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [name, gender || '', birth || '', parent_name || '', phone || '', family_info || '', address || '',
-       is_special ? 1 : 0, special_type || '', remark || null, avatar || null]
+       is_special ? 1 : 0, special_type || '', health_condition || '', is_sports ? 1 : 0, is_arts ? 1 : 0, remark || null, avatar || null, grade || '', className || '']
     );
-    // 同步：为已有考试记录的试卷补充该学生的考试记录
-    await fillMissingExamRecords(db, result.lastID);
     sendResponse(res, { id: result.lastID });
   } catch (err) {
     sendResponse(res, null, err.message, 500);
   }
 });
 
-// PUT /students/:id - 更新学生（支持备注 remark 与头像 avatar）
+// PUT /students/:id - 更新学生（支持健康/疾病状况 health_condition、体育生 is_sports、艺术生 is_arts、备注 remark 与头像 avatar）
 router.put('/students/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, gender, birth, parent_name, phone, family_info, address, is_special, special_type, remark, avatar } = req.body;
+    const { name, gender, birth, parent_name, phone, family_info, address, is_special, special_type, health_condition, is_sports, is_arts, remark, avatar, grade, class: className } = req.body;
+    if (typeof name !== 'string' || !name.trim()) return sendResponse(res, null, '学生姓名不能为空', 400);
+    if (!['男', '女'].includes(gender)) return sendResponse(res, null, '请选择性别', 400);
     const db = await getDb();
     const existing = await db.get('SELECT id FROM students WHERE id = ?', [id]);
     if (!existing) return sendResponse(res, null, '学生不存在', 404);
     await db.run(
-      `UPDATE students SET name=?, gender=?, birth=?, parent_name=?, phone=?, family_info=?, address=?, is_special=?, special_type=?, remark=?, avatar=? WHERE id=?`,
+      `UPDATE students SET name=?, gender=?, birth=?, parent_name=?, phone=?, family_info=?, address=?, is_special=?, special_type=?, health_condition=?, is_sports=?, is_arts=?, remark=?, avatar=?, grade=?, class=? WHERE id=?`,
       [name, gender || '', birth || '', parent_name || '', phone || '', family_info || '', address || '',
-       is_special ? 1 : 0, special_type || '', remark || null, avatar || null, id]
+       is_special ? 1 : 0, special_type || '', health_condition || '', is_sports ? 1 : 0, is_arts ? 1 : 0, remark || null, avatar || null, grade || '', className || '', id]
     );
     sendResponse(res, { id });
   } catch (err) {
@@ -189,9 +193,10 @@ router.delete('/students/batch', async (req, res) => {
     for (const id of ids) {
       await db.run('DELETE FROM exam_records WHERE student_id = ?', [id]);
       await db.run('DELETE FROM scores WHERE student_id = ?', [id]);
-      await db.run('DELETE FROM points WHERE student_id = ?', [id]);
+      try { await db.run('DELETE FROM points WHERE student_id = ?', [id]); } catch (e) {}
+      try { await db.run('DELETE FROM disciplines WHERE student_id = ?', [id]); } catch (e) {}
       await db.run('DELETE FROM leaves WHERE student_id = ?', [id]);
-      await db.run('DELETE FROM evaluations WHERE student_id = ?', [id]);
+      try { await db.run('DELETE FROM evaluations WHERE student_id = ?', [id]); } catch (e) {}
       await db.run('DELETE FROM communications WHERE student_id = ?', [id]);
       await db.run('DELETE FROM recitation_records WHERE student_id = ?', [id]);
       await db.run('DELETE FROM homework_records WHERE student_id = ?', [id]);
@@ -212,9 +217,10 @@ router.delete('/students/:id', async (req, res) => {
     // 删除考试记录（试卷管理）与成绩分析中的成绩，保持数据一致
     await db.run('DELETE FROM exam_records WHERE student_id = ?', [id]);
     await db.run('DELETE FROM scores WHERE student_id = ?', [id]);
-    await db.run('DELETE FROM points WHERE student_id = ?', [id]);
+    try { await db.run('DELETE FROM points WHERE student_id = ?', [id]); } catch (e) {}
+    try { await db.run('DELETE FROM disciplines WHERE student_id = ?', [id]); } catch (e) {}
     await db.run('DELETE FROM leaves WHERE student_id = ?', [id]);
-    await db.run('DELETE FROM evaluations WHERE student_id = ?', [id]);
+    try { await db.run('DELETE FROM evaluations WHERE student_id = ?', [id]); } catch (e) {}
     await db.run('DELETE FROM communications WHERE student_id = ?', [id]);
     // 级联清理背书/作业数据，避免遗留孤儿记录
     await db.run('DELETE FROM recitation_records WHERE student_id = ?', [id]);
@@ -233,7 +239,24 @@ router.get('/students/export', async (req, res) => {
   try {
     const db = await getDb();
     const rows = await db.all('SELECT * FROM students ORDER BY id ASC');
-    const worksheet = xlsx.utils.json_to_sheet(rows);
+    const exportData = rows.map(s => ({
+      '学号': s.id,
+      '姓名': s.name,
+      '性别': s.gender || '',
+      '年级': s.grade || '',
+      '班级': s.class || '',
+      '出生年月': s.birth || '',
+      '家长姓名': s.parent_name || '',
+      '联系电话': s.phone || '',
+      '体育生': s.is_sports ? '是' : '否',
+      '艺术生': s.is_arts ? '是' : '否',
+      '疾病/健康状况': s.health_condition || '良好/无特殊病史',
+      '特殊情况': s.is_special ? (s.special_type || '是') : '否',
+      '家庭情况': s.family_info || '',
+      '家庭住址': s.address || '',
+      '备注': s.remark || ''
+    }));
+    const worksheet = xlsx.utils.json_to_sheet(exportData);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, '学生花名册');
     const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
@@ -259,24 +282,6 @@ router.get('/students/:id', async (req, res) => {
 });
 
 // ================= SCORES =================
-
-// 将成绩同步到试卷管理的考试记录（按考试名称匹配试卷，保留评语/备注/图片）
-// score 为空时仅清空对应考试记录的成绩，不删除记录
-async function syncExamRecord(db, studentId, examName, score) {
-  if (!studentId || !examName) return;
-  const exam = await db.get('SELECT id FROM exams WHERE title = ?', [examName]);
-  if (!exam) return;
-  const existing = await db.get('SELECT id FROM exam_records WHERE exam_id = ? AND student_id = ?', [exam.id, studentId]);
-  if (score !== null && score !== undefined && score !== '') {
-    if (existing) {
-      await db.run('UPDATE exam_records SET score = ? WHERE id = ?', [score, existing.id]);
-    } else {
-      await db.run('INSERT INTO exam_records (exam_id, student_id, score) VALUES (?, ?, ?)', [exam.id, studentId, score]);
-    }
-  } else if (existing) {
-    await db.run('UPDATE exam_records SET score = NULL WHERE id = ?', [existing.id]);
-  }
-}
 
 // GET /scores - 成绩列表与进退分析
 router.get('/scores', async (req, res) => {
@@ -306,14 +311,13 @@ router.post('/scores/import', upload.single('file'), async (req, res) => {
     const db = await getDb();
     let imported = 0;
 
-    // 导入的成绩写入数据库，并同步到试卷管理的考试记录
+    // 导入的成绩直接参与分析
     for (const row of data) {
       if (!row.student_id || !row.subject || row.score === undefined) continue;
       await db.run(
         'INSERT INTO scores (student_id, subject, score, exam_name) VALUES (?, ?, ?, ?)',
         [row.student_id, row.subject, row.score, row.exam_name || '期中考试']
       );
-      await syncExamRecord(db, row.student_id, row.exam_name || '期中考试', row.score);
       imported++;
     }
 
@@ -323,7 +327,7 @@ router.post('/scores/import', upload.single('file'), async (req, res) => {
   }
 });
 
-// POST /scores - 单条成绩录入（同步到试卷管理的考试记录）
+// POST /scores - 单条成绩录入
 router.post('/scores', async (req, res) => {
   try {
     const { student_id, subject, score, exam_name } = req.body;
@@ -335,14 +339,13 @@ router.post('/scores', async (req, res) => {
       'INSERT INTO scores (student_id, subject, score, exam_name) VALUES (?, ?, ?, ?)',
       [student_id, subject, score, exam_name || '期中考试']
     );
-    await syncExamRecord(db, student_id, exam_name || '期中考试', score);
     sendResponse(res, { id: result.lastID });
   } catch (err) {
     sendResponse(res, null, err.message, 500);
   }
 });
 
-// PUT /scores/:id - 更新单条成绩（同步到试卷管理的考试记录）
+// PUT /scores/:id - 更新单条成绩
 router.put('/scores/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -354,16 +357,13 @@ router.put('/scores/:id', async (req, res) => {
       'UPDATE scores SET student_id=?, subject=?, score=?, exam_name=? WHERE id=?',
       [student_id, subject, score, exam_name || '期中考试', id]
     );
-    // 同步考试记录：先清除旧考试下的成绩，再写入新考试/新成绩（防止考试名称变更后残留）
-    await syncExamRecord(db, old.student_id, old.exam_name, null);
-    await syncExamRecord(db, student_id, exam_name || '期中考试', score);
     sendResponse(res, { id });
   } catch (err) {
     sendResponse(res, null, err.message, 500);
   }
 });
 
-// DELETE /scores/batch - 批量删除成绩（同步删除试卷管理考试记录中对应成绩）
+// DELETE /scores/batch - 批量删除成绩
 // 请求体：{ ids: [1, 2, 3] }
 // 注意：必须放在 DELETE /scores/:id 之前，否则 "batch" 会被 :id 参数匹配
 router.delete('/scores/batch', async (req, res) => {
@@ -371,29 +371,21 @@ router.delete('/scores/batch', async (req, res) => {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
     if (!ids.length) return sendResponse(res, null, 'ids 不能为空', 400);
     const db = await getDb();
-    // 先取出待删记录（用于同步考试记录），再使用占位符列表批量删除
+    // 使用占位符列表批量删除
     const placeholders = ids.map(() => '?').join(',');
-    const rows = await db.all(`SELECT student_id, exam_name FROM scores WHERE id IN (${placeholders})`, ids);
     await db.run(`DELETE FROM scores WHERE id IN (${placeholders})`, ids);
-    for (const row of rows) {
-      await syncExamRecord(db, row.student_id, row.exam_name, null);
-    }
     sendResponse(res, { ids });
   } catch (err) {
     sendResponse(res, null, err.message, 500);
   }
 });
 
-// DELETE /scores/:id - 删除单条成绩（同步删除试卷管理考试记录中对应成绩）
+// DELETE /scores/:id - 删除单条成绩
 router.delete('/scores/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const db = await getDb();
-    const row = await db.get('SELECT student_id, exam_name FROM scores WHERE id = ?', [id]);
     await db.run('DELETE FROM scores WHERE id = ?', [id]);
-    if (row) {
-      await syncExamRecord(db, row.student_id, row.exam_name, null);
-    }
     sendResponse(res, { id });
   } catch (err) {
     sendResponse(res, null, err.message, 500);
@@ -422,61 +414,220 @@ router.get('/scores/export', async (req, res) => {
   }
 });
 
-// ================= POINTS =================
+// ================= DISCIPLINES (违纪记录管理) =================
 
-// GET /points - 积分列表
-router.get('/points', async (req, res) => {
+// GET /disciplines/stats - 违纪月度统计（当月自动清零统计 vs 历史总累计）
+// 注意：必须在 GET /disciplines/:id 之前挂载
+router.get('/disciplines/stats', async (req, res) => {
   try {
     const db = await getDb();
-    const points = await db.all(`
-      SELECT p.*, st.name as student_name
-      FROM points p
-      LEFT JOIN students st ON p.student_id = st.id
-      ORDER BY p.created_at DESC
-    `);
-    sendResponse(res, points);
-  } catch (err) {
-    sendResponse(res, null, err.message, 500);
-  }
-});
-
-// POST /points - 录入积分
-router.post('/points', async (req, res) => {
-  try {
-    const { student_id, reason, points } = req.body;
-    const db = await getDb();
-    const result = await db.run(
-      'INSERT INTO points (student_id, reason, points) VALUES (?, ?, ?)',
-      [student_id, reason, points]
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+    // 本月违纪总人次（自然月周期，进入新月自动清零）
+    const monthTotalRow = await db.get(
+      `SELECT COUNT(*) as c FROM disciplines WHERE incident_date LIKE ?`,
+      [`${currentMonthStr}%`]
     );
-    sendResponse(res, { id: result.lastID });
+    // 本月讲话人次
+    const monthTalkingRow = await db.get(
+      `SELECT COUNT(*) as c FROM disciplines WHERE incident_date LIKE ? AND type = '讲话'`,
+      [`${currentMonthStr}%`]
+    );
+    // 本月迟到人次
+    const monthLateRow = await db.get(
+      `SELECT COUNT(*) as c FROM disciplines WHERE incident_date LIKE ? AND type = '迟到'`,
+      [`${currentMonthStr}%`]
+    );
+    // 历史总违纪人次（永久保存，不丢失任何档案）
+    const allTotalRow = await db.get(`SELECT COUNT(*) as c FROM disciplines`);
+    
+    // 本月违纪频次较高学生（>= 2 次给予预警关注）
+    const frequentStudents = await db.all(
+      `SELECT d.student_id, st.name as student_name, COUNT(d.id) as count
+       FROM disciplines d
+       LEFT JOIN students st ON d.student_id = st.id
+       WHERE d.incident_date LIKE ?
+       GROUP BY d.student_id
+       ORDER BY count DESC
+       LIMIT 6`,
+      [`${currentMonthStr}%`]
+    );
+    
+    sendResponse(res, {
+      current_month: currentMonthStr,
+      current_month_total: monthTotalRow ? monthTotalRow.c : 0,
+      current_month_talking: monthTalkingRow ? monthTalkingRow.c : 0,
+      current_month_late: monthLateRow ? monthLateRow.c : 0,
+      all_time_total: allTotalRow ? allTotalRow.c : 0,
+      frequent_students: frequentStudents || []
+    });
   } catch (err) {
     sendResponse(res, null, err.message, 500);
   }
 });
 
-// DELETE /points/batch - 批量删除积分记录
-// 请求体：{ ids: [1, 2, 3] }
-// 注意：必须放在 DELETE /points/:id 之前，否则 "batch" 会被 :id 参数匹配
-router.delete('/points/batch', async (req, res) => {
+// GET /disciplines/export - 导出学生违纪记录为 Excel
+router.get('/disciplines/export', async (req, res) => {
+  try {
+    const { month } = req.query;
+    const db = await getDb();
+    let sql = `
+      SELECT d.*, st.name as student_name, st.gender, st.grade, st.class
+      FROM disciplines d
+      LEFT JOIN students st ON d.student_id = st.id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (month && month !== 'all') {
+      sql += ` AND d.incident_date LIKE ?`;
+      params.push(`${month}%`);
+    }
+    sql += ` ORDER BY d.incident_date DESC, d.id DESC`;
+    
+    const rows = await db.all(sql, params);
+    const exportData = rows.map(r => ({
+      '记录编号': r.id,
+      '学生姓名': r.student_name || '未知/已删除学生',
+      '性别': r.gender || '',
+      '违纪类型': r.type,
+      '发生日期': r.incident_date,
+      '严重程度': r.severity || '一般',
+      '详细事由': r.description || '',
+      '处理结果': r.handling || '',
+      '登记时间': r.created_at
+    }));
+    
+    const worksheet = xlsx.utils.json_to_sheet(exportData);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, '学生违纪记录');
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="disciplines_${month || 'all'}.xlsx"`);
+    res.send(buffer);
+  } catch (err) {
+    sendResponse(res, null, err.message, 500);
+  }
+});
+
+// GET /disciplines - 获取违纪列表
+router.get('/disciplines', async (req, res) => {
+  try {
+    const { month, student_id, type, scope } = req.query;
+    const db = await getDb();
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+    let sql = `
+      SELECT d.*, st.name as student_name, st.gender, st.grade, st.class, st.avatar
+      FROM disciplines d
+      LEFT JOIN students st ON d.student_id = st.id
+      WHERE 1=1
+    `;
+    const params = [];
+    
+    if (scope === 'current') {
+      sql += ` AND d.incident_date LIKE ?`;
+      params.push(`${currentMonthStr}%`);
+    } else if (month && month !== 'all') {
+      sql += ` AND d.incident_date LIKE ?`;
+      params.push(`${month}%`);
+    }
+    
+    if (student_id) {
+      sql += ` AND d.student_id = ?`;
+      params.push(student_id);
+    }
+    
+    if (type && type !== 'all') {
+      sql += ` AND d.type = ?`;
+      params.push(type);
+    }
+    
+    sql += ` ORDER BY d.incident_date DESC, d.id DESC`;
+    const rows = await db.all(sql, params);
+    
+    const result = rows.map(r => ({
+      ...r,
+      is_current_month: r.incident_date && r.incident_date.startsWith(currentMonthStr) ? 1 : 0
+    }));
+    
+    sendResponse(res, result);
+  } catch (err) {
+    sendResponse(res, null, err.message, 500);
+  }
+});
+
+// POST /disciplines - 录入违纪记录（支持单学生或批量多学生）
+router.post('/disciplines', async (req, res) => {
+  try {
+    const { student_id, student_ids, type, incident_date, severity, description, handling } = req.body;
+    const targetIds = Array.isArray(student_ids) && student_ids.length > 0
+      ? student_ids
+      : (student_id ? [student_id] : []);
+      
+    if (!targetIds.length) return sendResponse(res, null, '请选择违纪学生', 400);
+    if (!type) return sendResponse(res, null, '请选择违纪类型', 400);
+    
+    const today = new Date().toISOString().slice(0, 10);
+    const date = incident_date || today;
+    const sev = severity || '一般';
+    const db = await getDb();
+    
+    for (const sid of targetIds) {
+      await db.run(
+        `INSERT INTO disciplines (student_id, type, incident_date, severity, description, handling)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [sid, type, date, sev, description || '', handling || '']
+      );
+    }
+    
+    sendResponse(res, { count: targetIds.length });
+  } catch (err) {
+    sendResponse(res, null, err.message, 500);
+  }
+});
+
+// PUT /disciplines/:id - 编辑修改违纪记录
+router.put('/disciplines/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { student_id, type, incident_date, severity, description, handling } = req.body;
+    const db = await getDb();
+    const existing = await db.get('SELECT id FROM disciplines WHERE id = ?', [id]);
+    if (!existing) return sendResponse(res, null, '记录不存在', 404);
+    
+    await db.run(
+      `UPDATE disciplines SET student_id=?, type=?, incident_date=?, severity=?, description=?, handling=? WHERE id=?`,
+      [student_id, type, incident_date, severity || '一般', description || '', handling || '', id]
+    );
+    sendResponse(res, { id });
+  } catch (err) {
+    sendResponse(res, null, err.message, 500);
+  }
+});
+
+// DELETE /disciplines/batch - 批量删除违纪记录
+// 注意：必须在 DELETE /disciplines/:id 之前挂载
+router.delete('/disciplines/batch', async (req, res) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
     if (!ids.length) return sendResponse(res, null, 'ids 不能为空', 400);
     const db = await getDb();
     const placeholders = ids.map(() => '?').join(',');
-    await db.run(`DELETE FROM points WHERE id IN (${placeholders})`, ids);
+    await db.run(`DELETE FROM disciplines WHERE id IN (${placeholders})`, ids);
     sendResponse(res, { ids });
   } catch (err) {
     sendResponse(res, null, err.message, 500);
   }
 });
 
-// DELETE /points/:id - 删除积分记录
-router.delete('/points/:id', async (req, res) => {
+// DELETE /disciplines/:id - 删除单条违纪记录
+router.delete('/disciplines/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const db = await getDb();
-    await db.run('DELETE FROM points WHERE id = ?', [id]);
+    await db.run('DELETE FROM disciplines WHERE id = ?', [id]);
     sendResponse(res, { id });
   } catch (err) {
     sendResponse(res, null, err.message, 500);
@@ -705,118 +856,6 @@ router.delete('/leaves/:id', async (req, res) => {
     const db = await getDb();
     await db.run('DELETE FROM leaves WHERE id = ?', [id]);
     sendResponse(res, { id });
-  } catch (err) {
-    sendResponse(res, null, err.message, 500);
-  }
-});
-
-// ================= EVALUATIONS =================
-
-// GET /evaluations - 评价列表
-router.get('/evaluations', async (req, res) => {
-  try {
-    const db = await getDb();
-    const evaluations = await db.all(`
-      SELECT e.*, st.name as student_name
-      FROM evaluations e
-      LEFT JOIN students st ON e.student_id = st.id
-      ORDER BY e.student_id ASC
-    `);
-    sendResponse(res, evaluations);
-  } catch (err) {
-    sendResponse(res, null, err.message, 500);
-  }
-});
-
-// POST /evaluations/generate - 一键生成评价
-router.post('/evaluations/generate', async (req, res) => {
-  try {
-    const db = await getDb();
-    const students = await db.all('SELECT id, name FROM students');
-    
-    let generated = 0;
-    for (const student of students) {
-      const existing = await db.get('SELECT id FROM evaluations WHERE student_id = ?', [student.id]);
-      if (existing) continue;
-
-      // 计算平均分与最高分
-      const scoreRow = await db.get(
-        'SELECT AVG(score) as avg, MAX(score) as max_score FROM scores WHERE student_id = ?',
-        [student.id]
-      );
-      const avg = scoreRow && scoreRow.avg != null ? Math.round(scoreRow.avg * 10) / 10 : 0;
-      const maxScore = scoreRow && scoreRow.max_score != null ? scoreRow.max_score : 0;
-      // 积分
-      const pointRow = await db.get(
-        'SELECT COALESCE(SUM(points),0) as total FROM points WHERE student_id = ?',
-        [student.id]
-      );
-      const totalPoints = pointRow ? pointRow.total : 0;
-
-      let teacher_score, final_grade;
-      if (avg > 0) {
-        teacher_score = Math.max(60, Math.min(100, Math.round(avg)));
-        if (teacher_score >= 90) final_grade = 'A';
-        else if (teacher_score >= 80) final_grade = 'B';
-        else if (teacher_score >= 70) final_grade = 'C';
-        else final_grade = 'D';
-      } else {
-        teacher_score = 85;
-        final_grade = 'B';
-      }
-
-      const template = teacher_score >= 90 ? '学习态度认真，成绩优异' :
-        teacher_score >= 80 ? '表现良好，成绩稳定' :
-        teacher_score >= 70 ? '有所进步，应再接再厉' : '仍需努力，建议加强辅导';
-      let comment = `${student.name}同学本学期${template}`;
-      if (totalPoints > 0) comment += `，累计获得积分 ${totalPoints} 分`;
-      if (maxScore > 0) comment += `，单科最高 ${maxScore} 分`;
-
-      await db.run(
-        'INSERT INTO evaluations (student_id, teacher_score, final_grade, comment) VALUES (?, ?, ?, ?)',
-        [student.id, teacher_score, final_grade, comment]
-      );
-      generated++;
-    }
-    sendResponse(res, { generated });
-  } catch (err) {
-    sendResponse(res, null, err.message, 500);
-  }
-});
-
-// PUT /evaluations/:id - 手动更新评价
-router.put('/evaluations/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { teacher_score, final_grade, comment } = req.body;
-    const db = await getDb();
-    await db.run(
-      'UPDATE evaluations SET teacher_score=?, final_grade=?, comment=? WHERE id=?',
-      [teacher_score, final_grade, comment, id]
-    );
-    sendResponse(res, { id });
-  } catch (err) {
-    sendResponse(res, null, err.message, 500);
-  }
-});
-
-// GET /evaluations/export - 导出评价表为 Excel
-router.get('/evaluations/export', async (req, res) => {
-  try {
-    const db = await getDb();
-    const rows = await db.all(`
-      SELECT e.id, st.name as student_name, e.teacher_score, e.final_grade, e.comment
-      FROM evaluations e
-      LEFT JOIN students st ON e.student_id = st.id
-      ORDER BY e.student_id ASC
-    `);
-    const worksheet = xlsx.utils.json_to_sheet(rows);
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, '评价表');
-    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="evaluations.xlsx"');
-    res.send(buffer);
   } catch (err) {
     sendResponse(res, null, err.message, 500);
   }

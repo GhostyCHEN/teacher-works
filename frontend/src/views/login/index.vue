@@ -3,10 +3,11 @@
     <div class="login-card">
       <div class="login-header">
         <div class="logo-icon">
-          <el-icon :size="40"><School /></el-icon>
+          <el-icon><Notebook /></el-icon>
         </div>
-        <h1 class="login-title">教师工作台</h1>
-        <p class="login-subtitle">班主任管理与教学协作平台</p>
+        <div class="notion-badge-pill">高中班主任工作空间</div>
+        <h1 class="login-title">班级工作台</h1>
+        <p class="login-subtitle">欢迎回来，让今天的工作有序展开。</p>
       </div>
 
       <el-form
@@ -14,25 +15,27 @@
         :model="loginForm"
         :rules="loginRules"
         class="login-form"
+        label-position="top"
         @submit.prevent="handleLogin"
       >
-        <el-form-item prop="username">
+        <el-form-item prop="username" label="用户名">
           <el-input
             v-model="loginForm.username"
             size="large"
             placeholder="请输入用户名"
+            autocomplete="username"
             :prefix-icon="User"
           />
         </el-form-item>
-        <el-form-item prop="password">
+        <el-form-item prop="password" label="密码">
           <el-input
             v-model="loginForm.password"
             size="large"
             type="password"
             placeholder="请输入密码"
+            autocomplete="current-password"
             show-password
             :prefix-icon="Lock"
-            @keyup.enter="handleLogin"
           />
         </el-form-item>
         <el-form-item>
@@ -41,14 +44,17 @@
             size="large"
             class="login-btn"
             :loading="loading"
-            @click="handleLogin"
+            native-type="submit"
           >
-            登 录
+            进入工作台
           </el-button>
         </el-form-item>
       </el-form>
 
-      <div class="login-tip">默认账号：admin / admin123</div>
+      <div class="login-tip">
+        <span class="tip-kbd">默认测试账号</span>
+        <code>admin</code> / <code>admin123</code>
+      </div>
     </div>
   </div>
 </template>
@@ -56,9 +62,10 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { User, Lock, School } from '@element-plus/icons-vue'
+import { User, Lock } from '@element-plus/icons-vue'
 import { login } from '../../api'
 import { ElMessage } from 'element-plus'
+import { isMobileDevice } from '../../utils/device'
 
 const router = useRouter()
 const loginFormRef = ref(null)
@@ -91,11 +98,13 @@ const handleLogin = async () => {
     localStorage.setItem('token', data.token)
     localStorage.setItem('username', data.username)
     ElMessage.success('登录成功')
-    await router.push('/dashboard')
-    // 强制刷新以确保路由正确加载
+
+    // 设备判断：移动端直接跳转到快速记违纪，电脑端跳转到数据看板
+    const targetUrl = isMobileDevice() ? '/mobile' : '/dashboard'
+    await router.push(targetUrl)
     setTimeout(() => {
-      if (router.currentRoute.value.path !== '/dashboard') {
-        window.location.href = '/dashboard'
+      if (router.currentRoute.value.path !== targetUrl) {
+        window.location.href = targetUrl
       }
     }, 100)
   } catch (err) {
@@ -107,90 +116,15 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.login-container {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-  position: relative;
-  overflow: hidden;
-}
-
-.login-container::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-  background-size: 30px 30px;
-  opacity: 0.5;
-}
-
-.login-card {
-  width: 400px;
-  padding: 40px 36px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
-  position: relative;
-  z-index: 1;
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.logo-icon {
-  width: 72px;
-  height: 72px;
-  margin: 0 auto 16px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-}
-
-.login-title {
-  margin: 0 0 8px;
-  font-size: 26px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.login-subtitle {
-  margin: 0;
-  font-size: 13px;
-  color: #909399;
-}
-
-.login-form {
-  margin-top: 8px;
-}
-
-.login-btn {
-  width: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  font-size: 16px;
-  letter-spacing: 4px;
-}
-
-.login-btn:hover {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a3f92 100%);
-}
-
-.login-tip {
-  text-align: center;
-  font-size: 12px;
-  color: #c0c4cc;
-  margin-top: 8px;
-}
+.login-container { min-height: 100dvh; display: grid; place-items: center; padding: 28px 16px; background: #f7f7f5; }
+.login-card { width: 410px; max-width: 100%; padding: 40px; background: #fff; border: 1px solid #e5e3df; border-radius: 12px; box-shadow: 0 8px 32px #37352f06; }
+.login-header { margin-bottom: 30px; }
+.logo-icon { width: 44px; height: 48px; display: grid; place-items: center; border: 1.5px solid #37352f; border-radius: 7px; font-size: 28px; margin-bottom: 24px; }
+.notion-badge-pill { color: #787671; font-size: 11px; letter-spacing: 1px; margin-bottom: 10px; }
+.login-title { font-size: 28px; letter-spacing: -1px; margin: 0 0 10px; color: #37352f; }
+.login-subtitle { margin: 0; color: #787671; font-size: 13px; line-height: 1.7; }
+.login-btn { width: 100%; margin-top: 8px; }
+.login-tip { display: flex; gap: 6px; justify-content: center; color: #787671; font-size: 11px; padding-top: 16px; border-top: 1px solid #ede9e4; }
+.login-tip code { color: #5d5b54; }
+@media (max-width: 480px) { .login-card { padding: 28px; } }
 </style>

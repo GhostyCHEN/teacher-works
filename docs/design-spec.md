@@ -1,4 +1,4 @@
-# 教师兼班主任工作台 - 详细设计文档
+# 高中班级工作台 - 详细设计文档
 
 ## 1. 架构设计
 项目采用前后端分离架构，方便一键编译部署。
@@ -10,26 +10,10 @@
 ## 2. 数据库设计 (SQLite)
 共设计 9 张核心业务表。
 
-### 2.1 资源表 (resources)
-- `id` (INTEGER PK)
-- `title` (TEXT): 资源名称
-- `file_path` (TEXT): 存储路径
-- `type` (TEXT): 文件类型
-- `upload_time` (DATETIME)
+资源、试卷、背书、课程表已退出当前产品。旧表仅为历史数据兼容保留，不提供业务接口，不执行清空迁移。
 
-### 2.2 试卷表 (exams)
-- `id` (INTEGER PK)
-- `title` (TEXT): 试卷标题
-- `type` (TEXT): 类型(单元检测/专项等)
-- `content` (TEXT): JSON 格式存储题目
-- `created_at` (DATETIME)
-
-### 2.3 背书表 (recitations)
-- `id` (INTEGER PK)
-- `student_name` (TEXT)
-- `subject` (TEXT)
-- `article` (TEXT): 篇目名称
-- `status` (INTEGER): 0-未背, 1-已背
+### 欠交登记
+沿用 `homework_tasks` 和 `homework_records` 存储既有与新增记录，以学生、科目、作业名称、欠交日期、补交状态为主要字段。新入口不发布作业，不编辑评分和图片。
 
 ### 2.4 学生档案表 (students)
 - `id` (INTEGER PK)
@@ -40,6 +24,9 @@
 - `phone` (TEXT)
 - `family_info` (TEXT)
 - `address` (TEXT)
+- `health_condition` (TEXT): 疾病/健康状况/体质特质
+- `is_sports` (INTEGER): 是否体育生 (0-否, 1-是)
+- `is_arts` (INTEGER): 是否艺术生 (0-否, 1-是)
 - `is_special` (INTEGER): 0-否, 1-是
 - `special_type` (TEXT): 特殊情况(单亲/孤儿等)
 
@@ -50,11 +37,14 @@
 - `score` (REAL)
 - `exam_name` (TEXT)
 
-### 2.6 积分表 (points)
+### 2.6 违纪记录表 (disciplines)
 - `id` (INTEGER PK)
 - `student_id` (INTEGER FK)
-- `reason` (TEXT)
-- `points` (INTEGER)
+- `type` (TEXT): 违纪类型 (讲话/迟到/走动打闹/未交作业等)
+- `incident_date` (TEXT): 发生日期 (YYYY-MM-DD，支持月度自动清零周期计算)
+- `severity` (TEXT): 程度 (轻微/一般/严重)
+- `description` (TEXT): 详细事由
+- `handling` (TEXT): 处理结果与措施
 - `created_at` (DATETIME)
 
 ### 2.7 请假表 (leaves)
@@ -65,14 +55,7 @@
 - `reason` (TEXT)
 - `status` (TEXT): 登记/已销假
 
-### 2.8 评价表 (evaluations)
-- `id` (INTEGER PK)
-- `student_id` (INTEGER FK)
-- `teacher_score` (REAL)
-- `final_grade` (TEXT): A/B/C
-- `comment` (TEXT): 自动生成的评语
-
-### 2.9 家校沟通表 (communications)
+### 2.8 家校沟通表 (communications)
 - `id` (INTEGER PK)
 - `student_id` (INTEGER FK)
 - `date` (TEXT)
@@ -84,34 +67,35 @@
 统一前缀: `/api/v1`
 所有接口返回标准 JSON: `{ "code": 200, "message": "success", "data": {} }`
 
-### 教师工作
-- `GET /resources`: 获取资源列表
-- `POST /resources`: 上传资源 (multipart/form-data)
-- `DELETE /resources/:id`: 删除资源
-- `GET /exams`: 试卷列表
-- `POST /exams`: 新增试卷
-- `GET /recitations`: 背书表列表
-- `POST /recitations`: 登记背书
+### 日常事务
+- `GET/POST /homework-missing`：查看与新增欠交记录
+- `PUT/DELETE /homework-missing/:id`：补交状态、备注或删除
+- `GET/POST /tasks`：查看与新增班级待办
+- `PUT/DELETE /tasks/:id`：编辑或删除待办
+- `PUT /tasks/:id/complete`：完成待办
 
 ### 班主任工作
 - `GET /students`: 学生列表
 - `POST /students/import`: Excel一键导入学生
+- `GET /disciplines`: 学生违纪记录列表（支持按月/学生/类型筛选）
+- `GET /disciplines/stats`: 违纪月度清零统计与历史累计
+- `POST /disciplines`: 录入学生违纪（支持多选批量）
+- `GET /disciplines/export`: 导出违纪记录 Excel
 - `GET /scores`: 成绩列表与进退分析
 - `POST /scores/import`: Excel导入成绩
-- `GET /points`: 积分列表
-- `POST /points`: 录入积分
 - `GET /seats`: 获取座位表 (根据学生表自动生成)
 - `GET /leaves`: 请假列表
 - `POST /leaves`: 登记/销假
-- `POST /evaluations/generate`: 一键生成评价
 - `GET /communications`: 沟通记录
 - `POST /communications`: 新增沟通
 
 ## 4. 前端 UI/UX 规范
-- **色彩**: 底色浅米白 (#F7F7F5)，主色调浅蓝 (#409EFF)，选中态浅橙色 (#FFB84D)。
-- **布局**: 左侧菜单栏 (竖向呈现核心功能，分"教师工作"和"班主任工作")，右侧主体展示。
-- **圆角**: 所有卡片使用大圆角 `border-radius: 12px`。
-- **数据看板**: 首页顶部呈现关键指标 (资源总数、试卷数量、请假情况、沟通次数)。
+- 参考 `frontend/DESIGN.md`，使用白底、暖灰导航、细分隔线和少量紫色强调。
+- 导航分工作空间、日常事务、班级管理。
+- 首页仅呈现班级待办、当前在假学生、待补交数量与近 7 日违纪记录。
+- 手机入口：违纪登记、请假登记、学生查询、班级待办；学生、请假和待办使用卡片列表。
+- 学生档案字段保持原样，仅姓名与性别必填，其余信息选填。
+- 学段固定高中，依据入学年份和每年 9 月计算高一至高三。
 
 ## 5. 打包与部署
 编写 `build.sh`：

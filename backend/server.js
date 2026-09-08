@@ -6,6 +6,7 @@ const fs = require('fs');
 const { initDb } = require('./db');
 
 const teacherRoutes = require('./routes/teacher');
+const homeworkRoutes = require('./routes/homework');
 const advisorRoutes = require('./routes/advisor');
 const statsRoutes = require('./routes/stats');
 const authRoutes = require('./routes/auth');
@@ -66,6 +67,7 @@ const classContextMiddleware = async (req, res, next) => {
 
 app.use(API_PREFIX + '/classes', authMiddleware, classRoutes);
 app.use(API_PREFIX, authMiddleware, classContextMiddleware, teacherRoutes);
+app.use(API_PREFIX, authMiddleware, classContextMiddleware, homeworkRoutes);
 app.use(API_PREFIX, authMiddleware, classContextMiddleware, advisorRoutes);
 app.use(API_PREFIX, authMiddleware, classContextMiddleware, statsRoutes);
 

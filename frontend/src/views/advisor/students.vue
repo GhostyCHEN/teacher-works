@@ -36,7 +36,16 @@
         </div>
       </template>
 
-      <el-table :data="pagedData" style="width: 100%" v-loading="loading" @selection-change="handleSelectionChange">
+      <div class="compact-mobile-list" v-loading="loading">
+        <article v-for="student in pagedData" :key="student.id" class="compact-record">
+          <h3>{{ student.name }} <small>{{ student.gender }} · {{ student.id }}</small></h3>
+          <p>{{ student.parent_name ? '家长：' + student.parent_name : '未填写家长姓名' }}</p>
+          <a v-if="student.phone" :href="`tel:${student.phone}`">{{ student.phone }}</a>
+          <div class="compact-actions"><el-button @click="viewDetail(student)">查看档案</el-button><el-button text @click="openEdit(student)">编辑</el-button></div>
+        </article>
+        <el-empty v-if="!loading && !pagedData.length" description="暂无学生" :image-size="60" />
+      </div>
+      <el-table class="full-desktop-table" :data="pagedData" style="width: 100%" v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="学号" width="80" />
         <el-table-column label="头像" width="70" align="center">
@@ -59,6 +68,30 @@
               {{ scope.row.special_type || '是' }}
             </el-tag>
             <el-tag v-else type="info">否</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="特长类型" width="120" align="center">
+          <template #default="scope">
+            <div class="tag-group">
+              <el-tag v-if="scope.row.is_sports === 1" type="success" size="small" effect="light">体育生</el-tag>
+              <el-tag v-if="scope.row.is_arts === 1" type="warning" size="small" effect="light">艺术生</el-tag>
+              <span v-if="scope.row.is_sports !== 1 && scope.row.is_arts !== 1" class="text-muted">普通</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="health_condition" label="疾病/健康状况" width="150" show-overflow-tooltip>
+          <template #default="scope">
+            <el-tag
+              v-if="scope.row.health_condition && !['无', '良好', '健康', '正常', '良好无特殊病史'].includes(scope.row.health_condition.trim())"
+              type="danger"
+              size="small"
+              effect="light"
+            >
+              {{ scope.row.health_condition }}
+            </el-tag>
+            <span v-else class="text-health-good">
+              {{ scope.row.health_condition || '健康良好' }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" width="160" show-overflow-tooltip />
@@ -86,6 +119,7 @@
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑学生' : '新增学生'" width="640px">
+      <p class="form-tip">仅姓名和性别必填，其余信息按需填写。</p>
       <el-form ref="formRef" :model="form" :rules="studentRules" label-width="100px">
         <el-form-item label="头像">
           <div class="avatar-upload">
@@ -154,10 +188,33 @@
           <el-input v-model="form.family_info" placeholder="家庭成员、经济状况等" />
         </el-form-item>
         <el-form-item label="年级">
-          <el-input v-model="form.grade" placeholder="如：一年级" />
+          <el-input v-model="form.grade" placeholder="如：高一（选填）" />
         </el-form-item>
         <el-form-item label="班级">
           <el-input v-model="form.class" placeholder="如：1班" />
+        </el-form-item>
+        <el-form-item label="特长类型">
+          <el-checkbox v-model="form.is_sports" :true-label="1" :false-label="0">体育生</el-checkbox>
+          <el-checkbox v-model="form.is_arts" :true-label="1" :false-label="0">艺术生</el-checkbox>
+        </el-form-item>
+        <el-form-item label="健康/疾病状况">
+          <el-input
+            v-model="form.health_condition"
+            placeholder="如：良好无特定病史、哮喘、心脏病史、过敏体质等"
+            clearable
+          />
+          <div class="quick-health-tags">
+            <span class="quick-tag-label">快捷填入：</span>
+            <el-tag
+              v-for="tag in QUICK_HEALTH_TAGS"
+              :key="tag"
+              size="small"
+              class="clickable-tag"
+              @click="setHealthTag(tag)"
+            >
+              {{ tag }}
+            </el-tag>
+          </div>
         </el-form-item>
         <el-form-item label="特殊情况">
           <el-switch v-model="form.is_special" :active-value="1" :inactive-value="0" />
@@ -182,12 +239,12 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="importVisible" title="Excel 导入学生" width="520px">
+    <el-dialog v-model="importVisible" title="Excel 导入学生" width="560px">
       <el-alert
         type="info"
         :closable="false"
         show-icon
-        title="请上传包含以下表头的 Excel：name(姓名)、gender(性别)、birth(出生年月)、parent_name(家长姓名)、phone(联系电话)、family_info(家庭情况)、address(地址)、special_type(特殊情况)"
+        title="仅 name(姓名) 与 gender(性别，男/女) 必填，其余列选填。支持表头：name(姓名)、gender(性别)、birth(出生年月)、parent_name(家长姓名)、phone(联系电话)、health_condition(疾病健康状况)、is_sports(体育生)、is_arts(艺术生)、family_info(家庭情况)、address(地址)、special_type(特殊情况)"
       />
       <el-upload
         ref="importUploadRef"
@@ -225,6 +282,23 @@
         <el-descriptions-item label="出生年月">{{ detail.birth }}</el-descriptions-item>
         <el-descriptions-item label="家长姓名">{{ detail.parent_name }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{ detail.phone }}</el-descriptions-item>
+        <el-descriptions-item label="特长生类别">
+          <div class="tag-group">
+            <el-tag v-if="detail.is_sports === 1" type="success" size="small">体育生</el-tag>
+            <el-tag v-if="detail.is_arts === 1" type="warning" size="small">艺术生</el-tag>
+            <span v-if="detail.is_sports !== 1 && detail.is_arts !== 1" class="text-muted">普通学生</span>
+          </div>
+        </el-descriptions-item>
+        <el-descriptions-item label="疾病/健康状况">
+          <el-tag
+            v-if="detail.health_condition && !['无', '良好', '健康', '正常', '良好无特殊病史'].includes(detail.health_condition.trim())"
+            type="danger"
+            size="small"
+          >
+            {{ detail.health_condition }}
+          </el-tag>
+          <span v-else class="text-health-good">{{ detail.health_condition || '健康良好/无特殊病史' }}</span>
+        </el-descriptions-item>
         <el-descriptions-item label="特殊情况" :span="2">
           <el-tag v-if="detail.is_special === 1" type="danger">{{ detail.special_type || '是' }}</el-tag>
           <el-tag v-else type="info">否</el-tag>
@@ -293,9 +367,26 @@ const form = ref({
   class: '',
   is_special: 0,
   special_type: '',
+  is_sports: 0,
+  is_arts: 0,
+  health_condition: '',
   remark: '',
   avatar: ''
 })
+
+// 常见健康/疾病情况快捷标签
+const QUICK_HEALTH_TAGS = ['健康良好', '过敏体质', '哮喘病史', '心脏病史', '严重近视', '骨折康复期', '体质偏弱']
+const setHealthTag = (tag) => {
+  if (tag === '健康良好') {
+    form.value.health_condition = '健康良好'
+    return
+  }
+  if (!form.value.health_condition || form.value.health_condition === '健康良好') {
+    form.value.health_condition = tag
+  } else if (!form.value.health_condition.includes(tag)) {
+    form.value.health_condition += `、${tag}`
+  }
+}
 
 // 内置卡通头像：选择后存储为 emoji:xxx，上传头像存储为文件名
 const BUILTIN_AVATARS = [
@@ -340,7 +431,7 @@ const pickEmoji = (a) => {
 
 // 学生表单校验规则
 const studentRules = {
-  name: [{ required: true, message: '请输入学生姓名', trigger: 'blur' }],
+  name: [{ required: true, whitespace: true, message: '请输入学生姓名', trigger: 'blur' }],
   gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
   phone: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }]
 }
@@ -369,6 +460,9 @@ const resetForm = () => {
     class: '',
     is_special: 0,
     special_type: '',
+    is_sports: 0,
+    is_arts: 0,
+    health_condition: '',
     remark: '',
     avatar: ''
   }
@@ -398,7 +492,12 @@ const openCreate = () => {
 }
 
 const openEdit = (row) => {
-  form.value = { ...row }
+  form.value = {
+    ...row,
+    is_sports: row.is_sports || 0,
+    is_arts: row.is_arts || 0,
+    health_condition: row.health_condition || ''
+  }
   avatarFile.value = null
   avatarPreviewUrl.value = ''
   if (avatarUploadRef.value) avatarUploadRef.value.clearFiles()
@@ -603,5 +702,37 @@ onMounted(loadStudents)
 .detail-header {
   text-align: center;
   margin-bottom: 16px;
+}
+.tag-group {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.text-muted {
+  color: #909399;
+  font-size: 12px;
+}
+.text-health-good {
+  color: #67c23a;
+  font-size: 13px;
+}
+.quick-health-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.quick-tag-label {
+  font-size: 12px;
+  color: #909399;
+}
+.clickable-tag {
+  cursor: pointer;
+  user-select: none;
+}
+.clickable-tag:hover {
+  opacity: 0.8;
 }
 </style>

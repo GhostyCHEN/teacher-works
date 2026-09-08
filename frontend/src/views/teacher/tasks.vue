@@ -16,13 +16,21 @@
             </el-select>
           </div>
           <el-button type="primary" @click="openCreate">
-            <el-icon><Plus /></el-icon>添加任务
+            <el-icon><Plus /></el-icon>添加待办
           </el-button>
         </div>
       </template>
 
-      <el-table :data="filteredTasks" style="width: 100%" v-loading="loading" :row-class-name="getRowClassName">
-        <el-table-column prop="title" label="任务标题" min-width="200" show-overflow-tooltip>
+      <div class="compact-mobile-list" v-loading="loading">
+        <article v-for="task in filteredTasks" :key="task.id" class="compact-record">
+          <h3>{{ task.title }}</h3><el-tag size="small" :type="getStatusType(task.status)">{{ getStatusText(task.status) }}</el-tag>
+          <p>{{ task.description || '未填写说明' }}</p><small :class="{ overdue: isOverdue(task) }">{{ task.due_date ? '截止：' + task.due_date : '未设截止日期' }}</small>
+          <div class="compact-actions"><el-button v-if="task.status !== 'completed'" @click="handleComplete(task)">标记完成</el-button><el-button text @click="openEdit(task)">编辑</el-button></div>
+        </article>
+        <el-empty v-if="!loading && !filteredTasks.length" description="暂无对应待办" :image-size="60" />
+      </div>
+      <el-table class="full-desktop-table" :data="filteredTasks" style="width: 100%" v-loading="loading" :row-class-name="getRowClassName">
+        <el-table-column prop="title" label="待办标题" min-width="200" show-overflow-tooltip>
           <template #default="scope">
             <div class="task-title-cell">
               <span>{{ scope.row.title }}</span>
@@ -52,7 +60,7 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="任务描述" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="description" label="待办描述" min-width="200" show-overflow-tooltip />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
             <el-button 
@@ -67,7 +75,7 @@
             <el-button link type="primary" size="small" @click="openEdit(scope.row)">
               编辑
             </el-button>
-            <el-popconfirm title="确定删除该任务吗？" @confirm="handleDelete(scope.row.id)">
+            <el-popconfirm title="确定删除该待办吗？" @confirm="handleDelete(scope.row.id)">
               <template #reference>
                 <el-button link type="danger" size="small">删除</el-button>
               </template>
@@ -77,10 +85,10 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑任务' : '添加任务'" width="600px">
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑待办' : '添加待办'" width="600px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="任务标题" prop="title">
-          <el-input v-model="form.title" placeholder="请输入任务标题" />
+        <el-form-item label="待办标题" prop="title">
+          <el-input v-model="form.title" placeholder="如：收集家长会回执、准备班级活动" />
         </el-form-item>
         <el-form-item label="优先级" prop="priority">
           <el-select v-model="form.priority" placeholder="请选择" style="width: 100%">
@@ -106,12 +114,12 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="任务描述" prop="description">
+        <el-form-item label="待办描述" prop="description">
           <el-input
             v-model="form.description"
             type="textarea"
             :rows="4"
-            placeholder="请输入任务描述"
+            placeholder="请输入待办描述"
           />
         </el-form-item>
       </el-form>
@@ -148,7 +156,7 @@ const form = ref({
 })
 
 const rules = {
-  title: [{ required: true, message: '请输入任务标题', trigger: 'blur' }],
+  title: [{ required: true, message: '请输入待办标题', trigger: 'blur' }],
   priority: [{ required: true, message: '请选择优先级', trigger: 'change' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
@@ -257,7 +265,7 @@ const handleSave = async () => {
 const handleComplete = async (row) => {
   try {
     await completeTask(row.id)
-    ElMessage.success('任务已完成')
+    ElMessage.success('待办已完成')
     loadData()
   } catch (e) {
     // 拦截器已提示

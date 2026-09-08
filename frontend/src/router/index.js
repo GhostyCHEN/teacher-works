@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '../layout/index.vue'
+import { isMobileDevice } from '../utils/device'
 
 const routes = [
   {
@@ -9,52 +10,40 @@ const routes = [
     meta: { title: '登录' }
   },
   {
+    path: '/mobile',
+    name: 'Mobile',
+    component: () => import('../views/mobile/index.vue'),
+    meta: { title: '班级工作台' }
+  },
+  {
+    path: '/mobile/disciplines',
+    name: 'MobileDisciplines',
+    component: () => import('../views/mobile/disciplines.vue'),
+    meta: { title: '违纪登记' }
+  },
+  {
     path: '/',
     component: Layout,
-    redirect: '/dashboard',
+    redirect: () => (isMobileDevice() ? '/mobile' : '/dashboard'),
     children: [
       {
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('../views/dashboard/index.vue'),
-        meta: { title: '数据看板', icon: 'Odometer' }
+        meta: { title: '班级首页', icon: 'Odometer' }
       },
       // 教师工作
-      {
-        path: 'teacher/resources',
-        name: 'Resources',
-        component: () => import('../views/teacher/resources.vue'),
-        meta: { title: '资源管理', icon: 'Files' }
-      },
-      {
-        path: 'teacher/exams',
-        name: 'Exams',
-        component: () => import('../views/teacher/exams.vue'),
-        meta: { title: '试卷管理', icon: 'Document' }
-      },
-      {
-        path: 'teacher/recitations',
-        name: 'Recitations',
-        component: () => import('../views/teacher/recitations.vue'),
-        meta: { title: '背书情况', icon: 'Reading' }
-      },
       {
         path: 'teacher/homework',
         name: 'Homework',
         component: () => import('../views/teacher/homework.vue'),
-        meta: { title: '作业管理', icon: 'EditPen' }
-      },
-      {
-        path: 'teacher/schedule',
-        name: 'Schedule',
-        component: () => import('../views/teacher/schedule.vue'),
-        meta: { title: '我的课程表', icon: 'Calendar' }
+        meta: { title: '欠交登记', icon: 'EditPen' }
       },
       {
         path: 'teacher/tasks',
         name: 'Tasks',
         component: () => import('../views/teacher/tasks.vue'),
-        meta: { title: '临时工作区', icon: 'List' }
+        meta: { title: '班级待办', icon: 'List' }
       },
       // 班主任工作
       {
@@ -70,22 +59,16 @@ const routes = [
         meta: { title: '成绩分析', icon: 'DataLine' }
       },
       {
-        path: 'advisor/points',
-        name: 'Points',
-        component: () => import('../views/advisor/points.vue'),
-        meta: { title: '积分管理', icon: 'Trophy' }
+        path: 'advisor/disciplines',
+        name: 'Disciplines',
+        component: () => import('../views/advisor/disciplines.vue'),
+        meta: { title: '违纪管理', icon: 'WarningFilled' }
       },
       {
         path: 'advisor/leaves',
         name: 'Leaves',
         component: () => import('../views/advisor/leaves.vue'),
         meta: { title: '请假管理', icon: 'Calendar' }
-      },
-      {
-        path: 'advisor/evaluations',
-        name: 'Evaluations',
-        component: () => import('../views/advisor/evaluations.vue'),
-        meta: { title: '期末评价', icon: 'Star' }
       },
       {
         path: 'advisor/communications',
@@ -100,7 +83,8 @@ const routes = [
         meta: { title: '座位表', icon: 'Grid' }
       }
     ]
-  }
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({
@@ -108,14 +92,23 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫：未登录跳转到登录页，已登录访问登录页跳转到工作台
+// 路由守卫：设备判断与权限拦截
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
-  if (to.path === '/login') {
-    if (token) return next('/dashboard')
-    return next()
+  const isMobile = isMobileDevice()
+
+  // 1. 未登录状态：统一拦截至登录页
+  if (!token) {
+    if (to.path === '/login') return next()
+    return next('/login')
   }
-  if (!token) return next('/login')
+
+  // 2. 已登录状态访问登录页：根据设备类型分流
+  if (to.path === '/login') {
+    if (isMobile) return next('/mobile')
+    return next('/dashboard')
+  }
+
   next()
 })
 

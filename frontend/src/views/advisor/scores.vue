@@ -1,16 +1,5 @@
 <template>
   <div class="scores-container">
-    <!-- 与试卷管理的关联提示 -->
-    <el-alert
-      :type="analyzedExams.length ? 'success' : 'warning'"
-      :closable="false"
-      show-icon
-      class="mb-16"
-      :title="analyzedExams.length
-        ? `已关联 ${analyzedExams.length} 场试卷参与分析：${analyzedExams.join('、')}（在「试卷管理」取消加入后，将不再出现在本页，也不参与分析）`
-        : '暂无试卷加入分析，请在「试卷管理」中点击「加入分析」标记要分析的考试'"
-    />
-
     <!-- 筛选条件 -->
     <el-card shadow="never" class="mb-16">
       <template #header>
@@ -42,7 +31,6 @@
             >
               <div class="exam-opt" :title="opt.name">
                 <span class="exam-opt-name">{{ opt.name }}</span>
-                <el-tag v-if="opt.analyzed" size="small" type="success">已加入分析</el-tag>
                 <span class="exam-opt-count">{{ opt.count }} 条成绩</span>
               </div>
             </el-option>
@@ -70,21 +58,6 @@
           <el-button @click="resetFilter">重置</el-button>
         </el-form-item>
       </el-form>
-      <!-- 当前所选考试与试卷管理的关联信息 -->
-      <div v-if="selectedExam" class="exam-link-card">
-        <div class="link-title">
-          {{ selectedExam.title }}
-          <el-tag size="small" type="success">已加入分析</el-tag>
-          <el-tag size="small" type="info">{{ selectedExam.type || '未分类' }}</el-tag>
-          <span class="link-meta">创建于 {{ formatDate(selectedExam.created_at) }}</span>
-        </div>
-        <div class="link-desc">
-          该试卷来自「试卷管理」，已录入 <b>{{ selectedExam.count }}</b> 条成绩，覆盖
-          <b>{{ selectedExam.studentCount }}</b> 名学生
-          <template v-if="selectedExam.remark">，备注：{{ selectedExam.remark }}</template>。
-          <template v-if="selectedExam.count === 0">点击右上角「录入成绩」，考试名称将自动带出并直接关联该试卷。</template>
-        </div>
-      </div>
     </el-card>
 
     <!-- 班级统计概览 -->
@@ -271,7 +244,7 @@
           <el-input v-model="form.subject" placeholder="例如：语文" />
         </el-form-item>
         <el-form-item label="成绩" prop="score" required>
-          <el-input-number v-model="form.score" :min="0" :max="100" :precision="1" style="width: 100%" />
+          <el-input-number v-model="form.score" :min="0" :precision="1" style="width: 100%" />
         </el-form-item>
         <el-form-item label="考试名称" prop="exam_name">
           <el-select
@@ -292,7 +265,6 @@
             >
               <div class="exam-opt" :title="opt.name">
                 <span class="exam-opt-name">{{ opt.name }}</span>
-                <el-tag v-if="opt.analyzed" size="small" type="success">已加入分析</el-tag>
                 <span class="exam-opt-count">{{ opt.count }} 条成绩</span>
               </div>
             </el-option>
@@ -322,8 +294,7 @@ import {
   deleteScore,
   batchDeleteScores,
   exportScores,
-  getStudents,
-  getExams
+  getStudents
 } from '../../api'
 
 const loading = ref(false)
@@ -339,12 +310,6 @@ const students = ref([])
 const analysisSummary = ref([])
 const importFile = ref(null)
 
-// 已加入分析的试卷标题（来自试卷管理，analyze=1）
-const analyzedExams = ref([])
-
-// 试卷管理中的全部试卷（含类型/创建时间/备注等元信息，用于展示真实关联）
-const allExams = ref([])
-
 // 筛选表单
 const filterForm = ref({
   exam_name: '',
@@ -356,23 +321,13 @@ const filterForm = ref({
 const trendChartRef = ref(null)
 let trendChartInstance = null
 
-// 考试名称选项：仅来自试卷管理中「已加入分析」的试卷，取消分析后即从下拉框消失
-// 每个选项带成绩条数，让关联一目了然
+// 考试直接来自已录入或导入的成绩，无需关联试卷。
 const examOptions = computed(() => {
-  const countMap = {}
-  scores.value.forEach(s => {
-    if (s.exam_name) countMap[s.exam_name] = (countMap[s.exam_name] || 0) + 1
-  })
-  return allExams.value
-    .filter(e => e.analyze === 1 && e.title)
-    .map(e => ({ name: e.title, analyzed: true, count: countMap[e.title] || 0, exam: e }))
+  const counts = new Map()
+  scores.value.forEach(s => { if (s.exam_name) counts.set(s.exam_name, (counts.get(s.exam_name) || 0) + 1) })
+  return [...counts].map(([name, count]) => ({ name, count }))
 })
-
-// 已加入分析的试卷标题集合
-const analyzedNames = computed(() => new Set(allExams.value.filter(e => e.analyze === 1).map(e => e.title)))
-
-// 分析数据源：仅包含已加入分析试卷的成绩（未加入分析的考试不参与统计/图表/学生分析）
-const analyzedScores = computed(() => scores.value.filter(s => analyzedNames.value.has(s.exam_name)))
+const analyzedScores = computed(() => scores.value)
 
 // 分析用筛选结果（考试名称/科目/学生）
 const filteredAnalysis = computed(() => {
@@ -384,23 +339,7 @@ const filteredAnalysis = computed(() => {
   })
 })
 
-// 当前所选考试与试卷管理的关联信息（仅当选中的考试确实来自试卷管理且已加入分析时展示）
-const selectedExam = computed(() => {
-  const name = filterForm.value.exam_name
-  if (!name) return null
-  const e = allExams.value.find(x => x.title === name)
-  if (!e || e.analyze !== 1) return null
-  const rows = scores.value.filter(s => s.exam_name === name)
-  return {
-    ...e,
-    count: rows.length,
-    studentCount: new Set(rows.map(r => r.student_id)).size
-  }
-})
-
-const formatDate = (d) => (d ? String(d).slice(0, 10) : '—')
-
-// 获取所有科目（去重，基于已加入分析试卷的成绩）
+// 获取所有科目（去重，基于成绩记录）
 const subjects = computed(() => {
   const subjs = new Set(analyzedScores.value.map(s => s.subject).filter(Boolean))
   return Array.from(subjs).sort()
@@ -474,10 +413,10 @@ const renderChart = () => {
     chartInstance = echarts.init(chartRef.value)
   }
   // 计算各分数段人数
-  const ranges = { '90-100': 0, '80-89': 0, '70-79': 0, '60-69': 0, '0-59': 0 }
+  const ranges = { '90分及以上': 0, '80-89': 0, '70-79': 0, '60-69': 0, '0-59': 0 }
   filteredAnalysis.value.forEach(s => {
     const score = Number(s.score)
-    if (score >= 90) ranges['90-100']++
+    if (score >= 90) ranges['90分及以上']++
     else if (score >= 80) ranges['80-89']++
     else if (score >= 70) ranges['70-79']++
     else if (score >= 60) ranges['60-69']++
@@ -526,7 +465,7 @@ const renderTrendChart = () => {
   trendChartInstance.setOption({
     tooltip: { trigger: 'axis' },
     xAxis: { type: 'category', data: examNamesList },
-    yAxis: { type: 'value', min: 0, max: 100 },
+    yAxis: { type: 'value', min: 0 },
     series: [{
       name: '班级平均分',
       type: 'line',
@@ -640,11 +579,9 @@ const onImportChange = (file) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [scoreRows, studentRows, examRows] = await Promise.all([getScores(), getStudents(), getExams()])
+    const [scoreRows, studentRows] = await Promise.all([getScores(), getStudents()])
     scores.value = scoreRows
     students.value = studentRows
-    allExams.value = examRows || []
-    analyzedExams.value = allExams.value.filter(e => e.analyze === 1).map(e => e.title)
     buildAnalysis(analyzedScores.value)
     // 数据加载完成后重置分页并渲染图表
     currentPage.value = 1
@@ -868,33 +805,6 @@ onBeforeUnmount(() => {
 /* 下拉面板宽度自适应内容（面板挂在 body 下，需全局选择器） */
 :global(.exam-select-popper) {
   min-width: 400px !important;
-}
-/* 当前所选考试与试卷管理的关联信息卡 */
-.exam-link-card {
-  margin-top: 12px;
-  padding: 12px 16px;
-  background: #f0f9eb;
-  border: 1px solid #e1f3d8;
-  border-radius: 6px;
-  font-size: 13px;
-  color: #303133;
-}
-.link-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-weight: bold;
-}
-.link-meta {
-  color: #909399;
-  font-weight: normal;
-  font-size: 12px;
-}
-.link-desc {
-  margin-top: 4px;
-  color: #606266;
-  line-height: 1.6;
 }
 .stat-card {
   text-align: center;
