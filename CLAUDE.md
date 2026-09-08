@@ -70,7 +70,7 @@ docker compose down    # remove container (volumes persist)
 
 `docker-compose.yml` bind-mounts `./backend` and `./frontend/dist` into the container — code lives on the host and `restart` is the upgrade. `entrypoint.sh` symlinks `backend/node_modules` to a named volume `/deps` (Alpine musl binaries vs host glibc). **Do not run this stack against a developer-machine checkout** — it will overwrite your local `backend/node_modules` with the container's Alpine-built copy.
 
-CI: `.github/workflows/docker-publish.yml` builds multi-arch (linux/amd64+arm64) and pushes to `ghcr.io/GhostyCHEN/teacher-works` on push to `master` or any `v*` tag. Tags emitted: `latest`, branch ref, tag ref, semver, and `sha-<full>`. v1.0.0 has no image — use `latest` or a `sha-*` tag.
+CI: `.github/workflows/docker-publish.yml` builds multi-arch (linux/amd64+arm64) and pushes to `ghcr.io/GhostyCHEN/teacher-works` on push to `master` or any `v*` tag. Tags emitted: `latest`, branch ref, tag ref, semver, and `sha-<full>`. v1.0.0 has no image — use `latest` or a `sha-*` tag. _(Forked from kyhx1984/teacher-works; v1.0.0 caveat is inherited from upstream's pre-CI state and applies here only because the fork has not re-pushed a v1.0.0 tag.)_
 
 ### Health check
 
