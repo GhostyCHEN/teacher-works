@@ -193,6 +193,7 @@
       <!-- 页面 2：违纪明细列表 -->
       <section v-show="activeTab === 'list'" class="list-view">
         <div class="mobile-page-heading"><span class="page-eyebrow">班级记录</span><h1>每一次记录，都有迹可循</h1><p>回顾日常表现，持续关注与跟进。</p></div>
+        <DisciplineRanking :records="monthlyRecords" :month="stats.current_month" :loading="rankingLoading" :failed="rankingFailed" @retry="loadStats" />
         <!-- 统计指标小卡片 -->
         <div class="stats-mini-row">
           <div class="mini-stat-box danger">
@@ -233,7 +234,7 @@
           </el-select>
         </div>
 
-        <div class="list-result-heading"><span>记录列表 · {{ filteredRecords.length }} 条</span><button type="button" class="refresh-button" :disabled="recordsLoading" @click="loadRecords">刷新</button></div>
+        <div class="list-result-heading"><span>记录列表 · {{ filteredRecords.length }} 条</span><button type="button" class="refresh-button" :disabled="recordsLoading" @click="loadRecords(); loadStats()">刷新</button></div>
         <!-- 记录卡片列表 -->
         <div class="record-card-list" v-loading="recordsLoading">
           <div
@@ -366,6 +367,7 @@ import {
   getClasses,
   getSettings
 } from '../../api'
+import DisciplineRanking from '../../components/disciplines/DisciplineRanking.vue'
 import StudentPicker from '../../components/mobile/StudentPicker.vue'
 import { switchToDesktop } from '../../utils/device'
 
@@ -415,6 +417,9 @@ const stats = ref({
   today_total: 0
 })
 const allRecords = ref([])
+const monthlyRecords = ref([])
+const rankingLoading = ref(false)
+const rankingFailed = ref(false)
 const listScope = ref('today') // 'today', 'current', 'all'
 const listFilterType = ref('')
 
@@ -576,18 +581,26 @@ const handleSubmit = async () => {
 const switchToListTab = () => {
   activeTab.value = 'list'
   loadRecords()
+  loadStats()
 }
 
 // 加载统计与记录
 const loadStats = async () => {
+  rankingLoading.value = true
+  rankingFailed.value = false
   try {
     const res = await getDisciplineStats()
     stats.value = res || {}
     // 计算今日记录
     const todayStr = localToday()
     const records = await getDisciplines({ scope: 'current' })
-    stats.value.today_total = (records || []).filter((r) => r.incident_date === todayStr).length
-  } catch (e) {}
+    monthlyRecords.value = records || []
+    stats.value.today_total = monthlyRecords.value.filter((r) => r.incident_date === todayStr).length
+  } catch (e) {
+    rankingFailed.value = true
+  } finally {
+    rankingLoading.value = false
+  }
 }
 
 const loadRecords = async () => {

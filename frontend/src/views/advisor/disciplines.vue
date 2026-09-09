@@ -60,6 +60,8 @@
       </el-col>
     </el-row>
 
+    <DisciplineRanking :records="monthlyRecords" :month="stats.current_month" :loading="loading" :failed="rankingFailed" @retry="loadData" />
+
     <!-- 规则说明 Alert -->
     <el-alert
       type="info"
@@ -598,6 +600,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
+import DisciplineRanking from '../../components/disciplines/DisciplineRanking.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getDisciplines,
@@ -635,6 +638,8 @@ const stats = ref({
 
 // 数据集
 const allRecords = ref([])
+const monthlyRecords = ref([])
+const rankingFailed = ref(false)
 const students = ref([])
 const selectedRows = ref([])
 
@@ -875,6 +880,7 @@ const applyFilter = () => {
 // 加载违纪列表及统计
 const loadData = async () => {
   loading.value = true
+  rankingFailed.value = false
   try {
     const params = {}
     if (viewScope.value === 'current') {
@@ -882,13 +888,16 @@ const loadData = async () => {
     } else if (filterMonth.value) {
       params.month = filterMonth.value
     }
-    const [recordList, statsData] = await Promise.all([
+    const [recordList, statsData, currentRecords] = await Promise.all([
       getDisciplines(params),
-      getDisciplineStats()
+      getDisciplineStats(),
+      viewScope.value === 'current' ? Promise.resolve(null) : getDisciplines({ scope: 'current' })
     ])
+    monthlyRecords.value = currentRecords || recordList || []
     allRecords.value = recordList || []
     stats.value = statsData || {}
   } catch (e) {
+    rankingFailed.value = true
     // 拦截器已处理错误提示
   } finally {
     loading.value = false
